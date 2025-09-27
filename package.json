@@ -1,0 +1,22 @@
+{
+  "name": "campaign-service",
+  "private": true,
+  "version": "0.1.0",
+  "author": "Riccardo Fabbian",
+  "license": "MIT",
+  "scripts": {
+    "build:db": "pnpm --filter db build",
+  "build:scheduler": "pnpm --filter scheduler build",
+    "build:server": "pnpm --filter server build",
+    "build": "pnpm -r build",
+  "test:scheduler": "pnpm --filter scheduler test",
+    "test:server": "pnpm --filter server test",
+    "test": "pnpm -r test -- --coverage"
+  },
+  "workspaces": [
+    "types",
+    "db",
+  "scheduler",
+    "server"
+  ]
+}

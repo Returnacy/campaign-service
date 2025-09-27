@@ -1,0 +1,1 @@
+export type StepRecipientStatus = 'PENDING' | 'SCHEDULED' | 'SENT' | 'DELIVERED' | 'FAILED';

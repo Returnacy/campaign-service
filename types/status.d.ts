@@ -1,0 +1,1 @@
+export type Status = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ARCHIVED';

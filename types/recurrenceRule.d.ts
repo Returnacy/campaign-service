@@ -1,0 +1,1 @@
+export type RecurrenceRule = "DAILY" | "WEEKLY" | "MONTHLY";

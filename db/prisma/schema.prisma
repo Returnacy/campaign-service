@@ -1,0 +1,192 @@
+generator client {
+  provider   = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+}
+
+enum Database {
+  MESSAGING
+  USER
+  CAMPAIGN
+}
+
+enum Channel {
+  EMAIL
+  SMS
+  PUSH
+  WHATSAPP
+  VIBER
+  VOICE
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum ExecutionStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  STOPPED
+}
+
+enum ScheduleType {
+  ONE_TIME
+  RECURRING
+  EVENT_TRIGGERED
+}
+
+enum TargetOperator {
+  EQUALS
+  NOT_EQUALS
+  GREATER_THAN
+  LESS_THAN
+  IN
+  NOT_IN
+  CONTAINS
+  NOT_CONTAINS
+  BEFORE
+  AFTER
+}
+
+enum StepRecipientStatus {
+  PENDING
+  SCHEDULED
+  ENQUEUED   // we've asked messaging service to send
+  SENT       // messaging service reported it sent
+  DELIVERED
+  FAILED
+  SKIPPED
+  TIMED_OUT
+  RETRYING
+}
+
+model Campaign {
+  id              String           @id @default(cuid())
+  businessId      String
+  brandId         String?
+  name            String
+  description     String?
+  status          CampaignStatus   @default(DRAFT)
+  scheduleType    ScheduleType
+  startAt         DateTime?
+  endAt           DateTime?
+  recurrenceRule  String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  steps           CampaignStep[]
+  executions      CampaignExecution[]
+  auditLogs       CampaignAuditLog[]
+}
+
+model CampaignStep {
+  id              String          @id @default(cuid())
+  campaignId      String
+  stepOrder       Int
+  name            String
+  description     String?
+  channel         Channel
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  campaign        Campaign        @relation(fields: [campaignId], references: [id])
+  template        StepTemplate?
+  targetingRules  TargetingRule[] @relation("StepTargetRules")
+  stepExecutions  StepExecution[]
+
+  @@unique([campaignId, stepOrder])
+}
+
+model TargetingRule {
+  id             String         @id @default(cuid())
+  campaignStepId String
+  database       Database
+  field          String
+  operator       TargetOperator
+  value          Json
+  createdAt      DateTime       @default(now())
+
+  campaignStep   CampaignStep   @relation("StepTargetRules", fields: [campaignStepId], references: [id])
+}
+
+model StepTemplate {
+  id             String       @id @default(cuid())
+  campaignStepId String       @unique
+  channel        Channel
+  subject        String?
+  bodyText       String
+  bodyHtml       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  campaignStep   CampaignStep @relation(fields: [campaignStepId], references: [id])
+}
+
+model CampaignExecution {
+  id             String         @id @default(cuid())
+  campaignId     String
+  runAt          DateTime       @default(now())
+  status         ExecutionStatus
+  errorMessage   String?
+  createdAt      DateTime       @default(now())
+
+  campaign       Campaign       @relation(fields: [campaignId], references: [id])
+  stepExecutions StepExecution[]
+}
+
+model StepExecution {
+  id               String         @id @default(cuid())
+  campaignExecutionId String?
+  campaignStepId   String
+  runAt            DateTime       @default(now())
+  status           ExecutionStatus
+  totalTargets     Int?
+  sentMessages     Int?
+  errors           Int?
+  createdAt        DateTime       @default(now())
+
+  campaignExecution CampaignExecution? @relation(fields: [campaignExecutionId], references: [id])
+  campaignStep      CampaignStep   @relation(fields: [campaignStepId], references: [id])
+  stepRecipients    StepRecipient[]
+}
+
+model StepRecipient {
+  id                 String            @id @default(cuid())
+  stepExecutionId    String
+  userId             String
+  status             StepRecipientStatus @default(PENDING)
+  enqueuedAt         DateTime?          // when orchestration enqueued send to messaging-service
+  sentAt             DateTime?          // when messaging-service reported "sent"
+  deliveredAt        DateTime?
+  attempts           Int               @default(0)
+  externalMessageId  String?           // id returned by messaging-service (for correlation)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  stepExecution      StepExecution @relation(fields: [stepExecutionId], references: [id])
+
+  @@index([userId, status])
+  @@index([stepExecutionId, status])
+  @@index([externalMessageId])
+}
+
+model CampaignAuditLog {
+  id                         String              @id @default(cuid())
+  actor                      String?             // service or user
+  action                     String
+  campaignId                 String
+  targetId                   String?             // e.g., outboundMessageId
+  payload                    Json?
+  createdAt                  DateTime            @default(now())
+
+  campaign                   Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,35 @@
+{
+  "name": "@campaign-service/scheduler",
+  "version": "0.1.0",
+  "author": "Riccardo Fabbian",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/src/run/runner.js",
+  "scripts": {
+    "build": "tsc -b .",
+    "start": "node dist/src/run/runner.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/run/runner.ts",
+    "start:worker": "node dist/src/dispatcher.js",
+    "dev:worker": "ts-node-dev --respawn --transpile-only src/dispatcher.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@vitest/coverage-v8": "^1.6.1",
+    "typescript": "^5.9.2",
+    "vitest": "^1.6.1",
+    "ts-node-dev": "^2.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "handlebars": "^4.7.8",
+    "dotenv": "^17.2.1",
+    "zod": "^3.23.8",
+    "pino": "^9.2.0",
+    "bullmq": "^5.24.0",
+    "ioredis": "^5.4.1",
+    "@campaign-service/db": "workspace:*",
+    "@campaign-service/types": "workspace:*"
+  }
+}
