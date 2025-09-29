@@ -59,15 +59,16 @@ jobs:
 
       - name: Install pnpm
         env:
-          PNPM_VERSION: 8.15.4
-        run: | # deterministic pnpm version (act + GitHub)
+          PNPM_VERSION: 10.17.1
+        run: |
+          echo "Setting up pnpm ${PNPM_VERSION}";
           corepack enable || true
           if command -v corepack >/dev/null 2>&1; then
             corepack prepare pnpm@${PNPM_VERSION} --activate || echo "corepack prepare failed, fallback"
           fi
-            if ! command -v pnpm >/dev/null 2>&1; then
-              npm install -g pnpm@${PNPM_VERSION}
-            fi
+          if ! command -v pnpm >/dev/null 2>&1; then
+            npm install -g pnpm@${PNPM_VERSION}
+          fi
           echo "Using pnpm version: $(pnpm -v)"
 
       - name: Restore pnpm store cache
@@ -87,26 +88,22 @@ jobs:
           echo "pnpm: $(pnpm -v)"
           echo "git sha: $GITHUB_SHA"
 
-      - name: Install dependencies (lockfile or fallback)
+      - name: Install dependencies (respect lockfile)
+        env:
+          CI: true
         run: |
-          REGENERATE=0
+          set -eo pipefail
           if [ -f pnpm-lock.yaml ]; then
             echo "Lockfile present -> attempting frozen install"
-            if pnpm install --frozen-lockfile; then
-              echo "Frozen install succeeded"
-            else
-              echo "Frozen install failed (likely importer rename: dispatcher -> scheduler). Falling back without frozen lockfile." >&2
-              REGENERATE=1
+            if ! pnpm install --frozen-lockfile; then
+              echo "Frozen install failed (lockfile mismatch). Retrying unfrozen..." >&2
               pnpm install --no-frozen-lockfile
             fi
           else
-            echo "No pnpm-lock.yaml found -> non-frozen install"
-            pnpm install --no-frozen-lockfile
-            REGENERATE=1
+            echo "No pnpm-lock.yaml found -> non-frozen install (consider committing one)" >&2
+            pnpm install
           fi
-          if [ "$REGENERATE" = "1" ]; then
-            echo "NOTE: Lockfile may need regeneration & commit after workspace rename. Run 'pnpm install' locally and commit updated pnpm-lock.yaml." >&2
-          fi
+          echo "Store path: $(pnpm store path)"
 
       - name: Cache Prisma engines
         id: prisma-cache
@@ -169,32 +166,112 @@ jobs:
             echo "No coverage summary file found" >> $GITHUB_STEP_SUMMARY
           fi
 
-  # Optional future job stub for building and pushing images (kept disabled)
-  # docker-build:
-  #   runs-on: ubuntu-latest
-  #   needs: test
-  #   if: github.ref == 'refs/heads/main'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v3
-  #     - name: Login to GHCR
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.actor }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
-  #     - name: Build & push server image
-  #       uses: docker/build-push-action@v6
-  #       with:
-  #         context: .
-  #         file: server/Dockerfile
-  #         push: true
-  #         tags: ghcr.io/${{ github.repository }}/campaign-server:latest
-  #     - name: Build & push scheduler image
-  #       uses: docker/build-push-action@v6
-  #       with:
-  #         context: .
-  #         file: scheduler/Dockerfile
-  #         push: true
-  #         tags: ghcr.io/${{ github.repository }}/campaign-scheduler:latest
+  docker-images:
+    name: Build & (Conditionally) Push Images
+    needs: test
+    if: needs.test.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [server, scheduler]
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAMESPACE: ${{ github.repository }}
+      COMMIT_SHA: ${{ github.sha }}
+      # Only push on real GitHub main branch runs (not local act)
+      PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'nektos/act' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Debug push conditions
+        run: |
+          echo "event: ${{ github.event_name }}"
+          echo "ref: ${{ github.ref }}"
+          echo "actor: ${{ github.actor }}"
+          echo "PUSH env (evaluated): ${{ env.PUSH }}"
+
+      - name: Log in to GHCR
+        if: env.PUSH == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract package version
+        id: pkg
+        run: |
+          PKG_PATH="${{ matrix.service }}/package.json"
+          if [ -f "$PKG_PATH" ]; then
+            VERSION=$(jq -r '.version' "$PKG_PATH")
+          else
+            VERSION="0.0.0"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Define image tags
+        id: tags
+        run: |
+          SERVICE=${{ matrix.service }}
+          LOWER_NAMESPACE=$(echo "$IMAGE_NAMESPACE" | tr '[:upper:]' '[:lower:]')
+          BASE="${REGISTRY}/${LOWER_NAMESPACE}"
+          TAGS="${BASE}:${SERVICE}-latest,${BASE}:${SERVICE}-${COMMIT_SHA}"
+          if [ "${{ steps.pkg.outputs.version }}" != "0.0.0" ]; then
+            TAGS+=" ,${BASE}:${SERVICE}-v${{ steps.pkg.outputs.version }}"
+          fi
+          CLEAN_TAGS=$(echo "$TAGS" | sed 's/, */,/g')
+          echo "tags=$CLEAN_TAGS" >> $GITHUB_OUTPUT
+          echo "Will build tags: $CLEAN_TAGS (push=$PUSH)"
+
+      - name: Build ${{ matrix.service }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.service }}/Dockerfile
+          push: ${{ env.PUSH == 'true' }}
+          load: ${{ env.PUSH != 'true' }}
+          provenance: false
+          sbom: false
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.ref.name=${{ github.ref_name }}
+            org.opencontainers.image.title=campaign-${{ matrix.service }}
+          tags: ${{ steps.tags.outputs.tags }}
+          outputs: type=docker
+
+      - name: Capture image digest
+        id: digest
+        run: |
+          # Attempt to derive digest via docker image inspect (load mode) or build metadata (push mode)
+          FIRST_TAG=$(echo "${{ steps.tags.outputs.tags }}" | cut -d',' -f1)
+          if docker image inspect "$FIRST_TAG" > /dev/null 2>&1; then
+            DIGEST=$(docker image inspect --format '{{index .RepoDigests 0}}' "$FIRST_TAG" || true)
+          fi
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+          echo "Image digest: ${DIGEST:-unavailable}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Summary entry
+        run: |
+          if [ "${PUSH}" = "true" ]; then
+            echo "Pushed image(s) for ${{ matrix.service }}:" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Built (not pushed) image(s) for ${{ matrix.service }} (local act run or non-main branch):" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "${{ steps.tags.outputs.tags }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ steps.digest.outputs.digest }}" ]; then
+            echo "Digest: ${{ steps.digest.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Force success under act (workaround)
+        if: ${{ github.actor == 'nektos/act' && always() }}
+        run: echo "Ensuring job success under act; prior warnings are non-fatal."

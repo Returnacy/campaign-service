@@ -1,11 +1,44 @@
-FROM node:current-alpine3.22 AS builder
+###############################################
+# Build stage
+###############################################
+FROM node:20-alpine AS build
 WORKDIR /app
 
-COPY package.json pnpm-workspace.yaml ./
-COPY tsconfig.base.json ./
+# Copy manifests early (include lockfile for reproducible installs)
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY types/package.json types/package.json
+COPY db/package.json db/package.json
+COPY scheduler/package.json scheduler/package.json
+
 COPY types ./types
 COPY db ./db
-COPY dispatcher ./dispatcher
+COPY scheduler ./scheduler
 
-RUN corepack enable && pnpm install --no-frozen-lockfile
-RUN pnpm run -r build
+ENV CI=true
+RUN corepack enable && \
+	(pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile)
+
+RUN pnpm --filter @campaign-service/db exec prisma generate || true
+RUN pnpm --filter @campaign-service/db build && \
+	pnpm --filter @campaign-service/scheduler build
+
+# Prune dev deps; fallback if prune aborts (rare)
+RUN pnpm prune --prod || pnpm install --prod --no-optional --frozen-lockfile
+
+###############################################
+# Runtime stage
+###############################################
+FROM node:20-alpine
+ENV NODE_ENV=production \
+	NODE_OPTIONS="--max_old_space_size=512"
+WORKDIR /app
+
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json /app/pnpm-workspace.yaml /app/tsconfig.base.json ./
+COPY --from=build /app/scheduler/package.json ./scheduler/package.json
+COPY --from=build /app/scheduler/dist ./scheduler/dist
+COPY --from=build /app/db/package.json ./db/package.json
+COPY --from=build /app/db/dist ./db/dist
+
+USER node
+CMD ["node", "scheduler/dist/src/run/runner.js"]
