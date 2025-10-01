@@ -118,7 +118,7 @@ describe('Campaign DB Repository Integration', () => {
 		const repo = new RepositoryPrisma();
 		const exec = await repo.createCampaignExecution(camp.id);
 		expect(exec.status).toBe('RUNNING');
-		const stopped = await repo.manageCampaignExecution(camp.id, exec.id, [camp.businessId], { action: 'stop' });
+		const stopped = await repo.manageCampaignExecution(camp.id, exec.id, [camp.businessId!], { action: 'stop' });
 		expect(stopped.status).toBe('STOPPED');
 	});
 });

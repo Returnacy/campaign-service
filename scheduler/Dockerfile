@@ -6,6 +6,7 @@ WORKDIR /app
 
 # Copy manifests early (include lockfile for reproducible installs)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY .npmrc .npmrc
 COPY types/package.json types/package.json
 COPY db/package.json db/package.json
 COPY scheduler/package.json scheduler/package.json
@@ -14,7 +15,9 @@ COPY types ./types
 COPY db ./db
 COPY scheduler ./scheduler
 
-ENV CI=true
+ARG GITHUB_PACKAGES_TOKEN
+ENV CI=true \
+    GITHUB_PACKAGES_TOKEN=${GITHUB_PACKAGES_TOKEN}
 RUN corepack enable && \
 	(pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile)
 

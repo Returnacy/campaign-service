@@ -1,4 +1,5 @@
 import { RepositoryPrisma } from "@campaign-service/db";
+import { createEvent, EventTypes } from '@returnacy/event-contracts';
 import { createClients } from "./clients/index.js";
 import { loadConfig } from "./config/env.js";
 import { computeUserCap } from "./utils/capacity.js";
@@ -75,7 +76,8 @@ export class Processor {
 
       try {
         // Mark step execution as PROCESSING (best effort, ignore if status not supported)
-        await this.repo.updateStepExecution(stepExecution.id, { status: 'PROCESSING' }).catch(() => {});
+  // Map in-progress status to RUNNING (ExecutionStatus enum) for compatibility
+  await this.repo.updateStepExecution(stepExecution.id, { status: 'RUNNING' as any }).catch(() => {});
 
         // 1. Determine capacity per channel
         const businessId = (campaign as any).businessId;
@@ -188,11 +190,40 @@ export class Processor {
         } else if (summary.failed > 0) {
           // Partial success. Mark maybe COMPLETED_WITH_ERRORS if supported; else COMPLETED.
           anyStepFailed = true;
-          await this.repo.updateStepExecution(stepExecution.id, { status: 'COMPLETED_PARTIAL' }).catch(async () => {
-            await this.repo.updateStepExecution(stepExecution.id, { status: 'COMPLETED' });
-          });
+          // Partial completion: mark as COMPLETED (no distinct enum yet) while recording failures in summary
+          await this.repo.updateStepExecution(stepExecution.id, { status: 'COMPLETED' as any });
         } else {
           await this.repo.updateStepExecution(stepExecution.id, { status: 'COMPLETED' });
+        }
+
+        // Produce event (outbox) only if we actually scheduled recipients (scheduled > 0)
+        if (summary.scheduled > 0) {
+          try {
+            const evt = createEvent({
+              type: EventTypes.CAMPAIGN_STEP_READY,
+              version: 1,
+              producer: 'campaign-service.scheduler',
+              payload: {
+                stepExecutionId: stepExecution.id,
+                campaignId: campaign.id,
+                businessId: (campaign as any).businessId,
+                channel: step.channel,
+                batchSize: summary.scheduled,
+              },
+              traceId: (globalThis as any).process?.env?.TRACE_ID || undefined
+            });
+            await (this.repo as any).createOutboxEvent({
+              aggregateType: 'StepExecution',
+              aggregateId: stepExecution.id,
+              type: evt.type,
+              version: evt.version,
+              payload: evt,
+              traceId: evt.traceId
+            });
+          } catch (evtErr) {
+            // eslint-disable-next-line no-console
+            console.error('Failed to enqueue campaign.step.ready event', { stepExecutionId: stepExecution.id, error: (evtErr as Error).message });
+          }
         }
 
         stepSummaries.push(summary);

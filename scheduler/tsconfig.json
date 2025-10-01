@@ -6,11 +6,13 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@types": ["../types/index.ts"]
+      "@types": ["../types/index.ts"],
+      "@returnacy/event-contracts": ["../../event-contracts/dist/index.d.ts"]
     },
   // Node types are provided transitively by devDependencies; omit explicit listing to avoid resolution issues in isolated build.
     "tsBuildInfoFile": "dist/.tsbuildinfo",
-    "isolatedModules": true
+    "isolatedModules": true,
+    "moduleResolution": "NodeNext"
   },
   "references": [
     { "path": "../types" },

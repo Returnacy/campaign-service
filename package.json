@@ -6,17 +6,20 @@
   "license": "MIT",
   "scripts": {
     "build:db": "pnpm --filter db build",
-  "build:scheduler": "pnpm --filter scheduler build",
+    "build:scheduler": "pnpm --filter scheduler build",
     "build:server": "pnpm --filter server build",
     "build": "pnpm -r build",
-  "test:scheduler": "pnpm --filter scheduler test",
+    "test:scheduler": "pnpm --filter scheduler test",
     "test:server": "pnpm --filter server test",
     "test": "pnpm -r test -- --coverage"
   },
   "workspaces": [
     "types",
     "db",
-  "scheduler",
+    "scheduler",
     "server"
-  ]
+  ],
+  "dependencies": {
+    "@returnacy/event-contracts": "^0.1.5"
+  }
 }

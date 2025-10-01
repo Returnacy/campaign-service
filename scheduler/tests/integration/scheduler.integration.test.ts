@@ -21,6 +21,7 @@ function buildRepo() {
     createStepExecutionRecipient: vi.fn().mockResolvedValue(undefined),
     findStepExecutionRecipient: vi.fn().mockResolvedValue(null),
     updateStepExecutionRecipient: vi.fn().mockResolvedValue(undefined),
+    createOutboxEvent: vi.fn().mockResolvedValue({ id: 'evt1' }),
   } as any;
 }
 

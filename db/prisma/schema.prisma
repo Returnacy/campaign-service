@@ -71,7 +71,7 @@ enum StepRecipientStatus {
 
 model Campaign {
   id              String           @id @default(cuid())
-  businessId      String
+  businessId      String?
   brandId         String?
   name            String
   description     String?
@@ -189,4 +189,27 @@ model CampaignAuditLog {
   createdAt                  DateTime            @default(now())
 
   campaign                   Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+// Generic outbox for domain events produced by campaign-service
+// Single purpose: durable, transactional capture of events to be published asynchronously.
+model OutboxEvent {
+  id            String   @id @default(cuid())
+  aggregateType String   // e.g., CampaignStepExecution
+  aggregateId   String   // e.g., stepExecutionId
+  type          String   // event type (matches registry, e.g., campaign.step.ready)
+  version       Int      // payload schema version
+  payload       Json
+  traceId       String?
+  occurredAt    DateTime @default(now())
+  publishedAt   DateTime?
+  attempt       Int      @default(0)
+  error         String?
+  maxAttempts   Int      @default(10)
+  nextAttemptAt DateTime @default(now())
+
+  @@index([publishedAt])
+  @@index([type])
+  @@index([aggregateType, aggregateId])
+  @@index([nextAttemptAt])
 }

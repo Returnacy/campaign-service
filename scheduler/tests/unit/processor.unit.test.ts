@@ -10,6 +10,7 @@ function buildRepo(overrides: any = {}) {
     createStepExecutionRecipient: vi.fn(),
     findStepExecutionRecipient: vi.fn(),
     updateStepExecutionRecipient: vi.fn(),
+    createOutboxEvent: vi.fn().mockResolvedValue({ id: 'evt1' }),
     ...overrides,
   } as any;
 }
@@ -67,7 +68,7 @@ describe('Processor.processJob', () => {
   });
 
   test('happy path schedules user', async () => {
-    repo.findCampaignById.mockResolvedValueOnce({ status: 'ACTIVE', businessId: 'b1', steps: [{ id: 's1', channel: 'EMAIL', targetingRules: [{ database: 'USER' }], template: { subject: 'a', bodyText: 'b', bodyHtml: 'c' } }] });
+    repo.findCampaignById.mockResolvedValueOnce({ id: 'c1', status: 'ACTIVE', businessId: 'b1', steps: [{ id: 's1', channel: 'EMAIL', targetingRules: [{ database: 'USER' }], template: { subject: 'a', bodyText: 'b', bodyHtml: 'c' } }] });
     repo.createStepExecution.mockResolvedValueOnce({ id: 'stepExec1' });
     const res = await processor.processJob({ campaignId: 'c1', campaignExecutionId: 'e1', businessId: 'b1' });
   expect(Array.isArray(res.steps)).toBe(true);
@@ -78,7 +79,7 @@ describe('Processor.processJob', () => {
   });
 
   test('partial failure path', async () => {
-    repo.findCampaignById.mockResolvedValueOnce({ status: 'ACTIVE', businessId: 'b1', steps: [{ id: 's1', channel: 'EMAIL', targetingRules: [{ database: 'USER' }], template: { subject: 'a', bodyText: 'b', bodyHtml: 'c' } }] });
+    repo.findCampaignById.mockResolvedValueOnce({ id: 'c1', status: 'ACTIVE', businessId: 'b1', steps: [{ id: 's1', channel: 'EMAIL', targetingRules: [{ database: 'USER' }], template: { subject: 'a', bodyText: 'b', bodyHtml: 'c' } }] });
     repo.createStepExecution.mockResolvedValueOnce({ id: 'stepExec1' });
     // fail scheduling
     (processor as any).clients.messagingClient.schedule.mockRejectedValueOnce(new Error('boom'));

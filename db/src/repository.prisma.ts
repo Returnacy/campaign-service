@@ -1,5 +1,5 @@
 import { prisma } from './prismaClient.js';
-import type { Campaign, CampaignStep, ExecutionStatus } from "@prisma/client";
+import type { Campaign, CampaignStep, ExecutionStatus, Prisma } from "@prisma/client";
 import type { 
 	CreateCampaign, 
 	CreateCampaignStep, 
@@ -64,15 +64,15 @@ export class RepositoryPrisma {
 	async createCampaign(data: CreateCampaign) {
 		return prisma.campaign.create({
 			data: {
-				businessId: data.businessId,
+				businessId: data.businessId ? data.businessId : null,
 				brandId: data.brandId ? data.brandId : null,
 				name: data.name,
 				description: data.description ? data.description : null,
-				status: data.status,
+				status: 'DRAFT',
 				scheduleType: data.scheduleType,
 				recurrenceRule: data.recurrenceRule,
-				startAt: data.startAt ? new Date(data.startAt) : null,
-				endAt: data.endAt ? new Date(data.endAt) : null,
+				startAt: null,
+				endAt: null,
 				steps: {
 					create: data.steps.map((step: CreateCampaignStep) => {
 						const stepData: any = {
@@ -108,7 +108,7 @@ export class RepositoryPrisma {
 		});
 	}
 
-	async updateCampaign(id: string, businessIds: string[], data: Partial<UpdateCampaign>) {
+	async updateCampaign(id: string, businessIds: string[], data: UpdateCampaign) {
 		const updateData: Record<string, any> = {};
 
 		if ('name' in data) updateData.name = data.name;
@@ -151,7 +151,7 @@ export class RepositoryPrisma {
 
 		switch (data.action) {
 			case "start":
-				return this.startCampaign(campaign, data.payload.endAt);
+				return (data.payload ? this.startCampaign(campaign, data.payload.endAt) : this.startCampaign(campaign));
 			case "stop":
 				return this.stopCampaign(campaign);
 			case "pause":
@@ -159,7 +159,7 @@ export class RepositoryPrisma {
 			case "resume":
 				return this.resumeCampaign(campaign);
 			case "reschedule":
-				return this.rescheduleCampaign(campaign, data.payload);
+				return (data.payload ? this.rescheduleCampaign(campaign, data.payload) : this.rescheduleCampaign(campaign));
 		}
 	}
 
@@ -198,7 +198,7 @@ export class RepositoryPrisma {
 		});
 	}
 
-	private async rescheduleCampaign(campaign: Campaign & { steps: CampaignStep[] }, payload?: { startAt?: string; endAt?: string }) {
+	private async rescheduleCampaign(campaign: Campaign & { steps: CampaignStep[] }, payload?: { startAt?: string | undefined; endAt?: string | undefined }) {
 		if (payload?.startAt) {
 			campaign.startAt = new Date(payload.startAt);
 		}
@@ -532,7 +532,7 @@ export class RepositoryPrisma {
 				enqueuedAt: recipient.enqueuedAt ? new Date(recipient.enqueuedAt) : null,
 				sentAt: recipient.sentAt ? new Date(recipient.sentAt) : null,
 				deliveredAt: recipient.deliveredAt ? new Date(recipient.deliveredAt) : null,
-				attempts: recipient.attempts,
+				attempts: typeof recipient.attempts === 'number' ? recipient.attempts : 0,
 				externalMessageId: recipient.externalMessageId ?? null,
 			}
 		});
@@ -605,5 +605,44 @@ export class RepositoryPrisma {
 			where: { id: step.template.id },
 			data: updateData,
 		});
+	}
+
+	// Outbox
+	async createOutboxEvent(evt: { aggregateType: string; aggregateId: string; type: string; version: number; payload: any; traceId?: string; maxAttempts?: number }) {
+		return prisma.outboxEvent.create({
+			data: {
+				aggregateType: evt.aggregateType,
+				aggregateId: evt.aggregateId,
+				type: evt.type,
+				version: evt.version,
+				payload: evt.payload as any,
+				traceId: evt.traceId ?? null,
+				maxAttempts: evt.maxAttempts ?? 10,
+				nextAttemptAt: new Date(),
+			}
+		});
+	}
+
+	async fetchUnpublishedOutboxEvents(limit: number = 100, now: Date = new Date()) {
+		return prisma.outboxEvent.findMany({
+			where: { publishedAt: null, nextAttemptAt: { lte: now } },
+			orderBy: { occurredAt: 'asc' },
+			take: limit
+		});
+	}
+
+	async markOutboxEventPublished(id: string) {
+		return prisma.outboxEvent.update({ where: { id }, data: { publishedAt: new Date(), error: null } });
+	}
+
+	async markOutboxEventFailed(id: string, error: string, backoffSeconds: number) {
+		return prisma.outboxEvent.update({
+			where: { id },
+			data: { attempt: { increment: 1 }, error, nextAttemptAt: new Date(Date.now() + backoffSeconds * 1000) }
+		});
+	}
+
+	async markOutboxEventGiveUp(id: string, error: string) {
+		return prisma.outboxEvent.update({ where: { id }, data: { error, nextAttemptAt: new Date(8640000000000000) } });
 	}
 }

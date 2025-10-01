@@ -11,6 +11,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/run/runner.ts",
     "start:worker": "node dist/src/dispatcher.js",
     "dev:worker": "ts-node-dev --respawn --transpile-only src/dispatcher.ts",
+  "start:outbox": "node dist/src/outboxPublisher.js",
+  "dev:outbox": "ts-node-dev --respawn --transpile-only src/outboxPublisher.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -30,6 +32,7 @@
     "bullmq": "^5.24.0",
     "ioredis": "^5.4.1",
     "@campaign-service/db": "workspace:*",
-    "@campaign-service/types": "workspace:*"
+    "@campaign-service/types": "workspace:*",
+  "@returnacy/event-contracts": "^0.1.5"
   }
 }
