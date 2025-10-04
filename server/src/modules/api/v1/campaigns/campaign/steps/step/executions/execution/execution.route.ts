@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Query } from '@campaign-service/types';
 import { getStepExecutionHandler } from './get.execution.controller.js';
 import { getStepExecutionRecipientsHandler } from './recipients/get.recipients.controller.js';
-import { requireRole } from '@/utils/authGuards.js';
+import { requireRole } from '../../../../../../../../../utils/authGuards.js';
 
 export async function executionRoutes(server: FastifyInstance) {
   server.get<{ Params: { campaignId: string; stepId: string; executionId: string } }>(

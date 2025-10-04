@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { requireRole } from '@/utils/authGuards.js';
+import { requireRole } from '../../../../../../../utils/authGuards.js';
 import { getCampaignExecutionHandler } from './get.execution.controller.js';
 import { postCampaignExecutionHandler } from './post.execution.controller.js';
 
