@@ -2,6 +2,10 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Accept GitHub Packages token at build time to pull private scope packages
+ARG GITHUB_PACKAGES_TOKEN
+ENV GITHUB_PACKAGES_TOKEN=${GITHUB_PACKAGES_TOKEN}
+
 # copy root package.json + lockfile + workspace packages
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY tsconfig.base.json ./
@@ -10,7 +14,10 @@ COPY db ./db
 
 # install everything from root (workspaces aware)
 ENV CI=true
-RUN corepack enable && (pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile)
+# Generate .npmrc inside build context if not supplied (so Docker context needn't include root .npmrc)
+RUN printf '@returnacy:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}\nalways-auth=true\n' > .npmrc \
+	&& corepack enable \
+	&& (pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile)
 
 # NOTE: No database connection or migrations are executed at build time.
 # Prisma client generation happens via the prebuild script in package.json (prisma generate)
