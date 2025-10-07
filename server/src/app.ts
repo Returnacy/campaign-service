@@ -4,12 +4,14 @@ import fastifyCors from '@fastify/cors';
 
 import keycloakAuthPlugin from './plugins/keycloakAuthPlugin.js';
 import keycloakTokenPlugin from './plugins/keycloakTokenPlugin.js';
+import userAuthPlugin from './plugins/userAuthPlugin.js';
 import prismaRepositoryPlugin from './plugins/prismaRepositoryPlugin.js';
 import redisConnectionPlugin from './plugins/redisConnectionPlugin.js';
 
 // Placeholder: campaign routes will be defined here
 import { campaignsRoutes } from './modules/api/v1/campaigns/campaigns.route.js';
 import { healthRoute } from './modules/health/health.route.js';
+import { authDebugRoute } from './modules/auth/debug.route.js';
 
 import { CorsError } from './errors/index.error.js';
 import legacyAuthPlugin from './plugins/legacyAuthPlugin.js';
@@ -44,12 +46,14 @@ async function main() {
     server.register(legacyAuthPlugin);
   } else {
     server.register(keycloakAuthPlugin);
+    server.register(userAuthPlugin);
     server.register(keycloakTokenPlugin);
   }
   server.register(prismaRepositoryPlugin);
   server.register(redisConnectionPlugin);
 
   server.register(campaignsRoutes, { prefix: '/api/v1' });
+  server.register(authDebugRoute, { prefix: '/api/v1' });
   server.register(healthRoute);
 
 
