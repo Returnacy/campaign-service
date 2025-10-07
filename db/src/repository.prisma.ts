@@ -33,11 +33,14 @@ export class RepositoryPrisma {
 		});
 	}
 
-	async findCampaignById(id: string, businessIds: string[]): Promise<(Campaign & { steps: CampaignStep[] }) | null> {
+	async findCampaignById(id: string, scopes: string[]): Promise<(Campaign & { steps: CampaignStep[] }) | null> {
 		return prisma.campaign.findUnique({
 			where: { 
 				id: id,
-				businessId: { in: businessIds || [] },
+				OR: [
+					{ businessId: { in: scopes || [] } },
+					{ brandId: { in: scopes || [] } }
+				],
 			},
 			include: { 
 				steps: {
@@ -50,14 +53,16 @@ export class RepositoryPrisma {
 		});
 	}
 
-	async findCampaignsByBusinessOrBrandId(businessOrBrandId: string): Promise<Campaign[]> {
+
+	async findCampaignsByBusinessId(businessId: string): Promise<Campaign[]> {
 		return prisma.campaign.findMany({
-			where: {
-				OR: [
-					{ businessId: businessOrBrandId },
-					{ brandId: businessOrBrandId }
-				]
-			}
+			where: { businessId }
+		});
+	}
+
+	async findCampaignsByBrandId(brandId: string): Promise<Campaign[]> {
+		return prisma.campaign.findMany({
+			where: { brandId }
 		});
 	}
 
@@ -108,7 +113,7 @@ export class RepositoryPrisma {
 		});
 	}
 
-	async updateCampaign(id: string, businessIds: string[], data: UpdateCampaign) {
+	async updateCampaign(id: string, scopes: string[], data: UpdateCampaign) {
 		const updateData: Record<string, any> = {};
 
 		if ('name' in data) updateData.name = data.name;
@@ -128,7 +133,10 @@ export class RepositoryPrisma {
 		return prisma.campaign.update({
 			where: { 
 				id: id,
-				businessId: { in: businessIds || [] },
+				OR: [
+					{ businessId: { in: scopes || [] } },
+					{ brandId: { in: scopes || [] } }
+				],
 			},
 			data: updateData,
 		});
@@ -212,11 +220,14 @@ export class RepositoryPrisma {
 	}
 
 	// Steps
-	async findCampaignSteps(campaignId: string, businessIds: string[]) {
+	async findCampaignSteps(campaignId: string, scopes: string[]) {
 		const campaign = await prisma.campaign.findFirst({
 			where: {
 				id: campaignId,
-				businessId: { in: businessIds || [] }
+				OR: [
+					{ businessId: { in: scopes || [] } },
+					{ brandId: { in: scopes || [] } }
+				],
 			},
 			include: {
 				steps: {
@@ -232,10 +243,16 @@ export class RepositoryPrisma {
 		return campaign.steps;
 	}
 
-	async createCampaignStep(campaignId: string, businessIds: string[], data: CreateCampaignStep) {
+	async createCampaignStep(campaignId: string, scopes: string[], data: CreateCampaignStep) {
 		// Ensure campaign exists and belongs to user/business context
 		const campaign = await prisma.campaign.findFirst({
-			where: { id: campaignId, businessId: { in: businessIds || [] } },
+			where: { 
+				id: campaignId, 
+				OR: [
+					{ businessId: { in: scopes || [] } },
+					{ brandId: { in: scopes || [] } }
+				], 
+			},
 			select: { id: true }
 		});
 		if (!campaign) throw new Error('Campaign not found');
@@ -273,12 +290,17 @@ export class RepositoryPrisma {
 		});
 	}
 
-	async findCampaignStepById(campaignId: string, stepId: string, businessIds: string[]) {
+	async findCampaignStepById(campaignId: string, stepId: string, scopes: string[]) {
 		return prisma.campaignStep.findFirst({
 			where: {
 				id: stepId,
 				campaignId: campaignId,
-				campaign: { businessId: { in: businessIds || [] } }
+				campaign: { 
+					OR: [
+						{ businessId: { in: scopes || [] } },
+						{ brandId: { in: scopes || [] } }
+					], 
+				}
 			},
 			include: {
 				template: true,
@@ -322,9 +344,15 @@ export class RepositoryPrisma {
 			orderBy: { runAt: 'desc' }
 		});
 	}
-	async findCampaignExecutions(campaignId: string, businessIds: string[], page: number, pageSize: number) {
+	async findCampaignExecutions(campaignId: string, scopes: string[], page: number, pageSize: number) {
 		const campaign = await prisma.campaign.findFirst({
-			where: { id: campaignId, businessId: { in: businessIds || [] } },
+			where: { 
+				id: campaignId, 
+				OR: [
+					{ businessId: { in: scopes || [] } },
+					{ brandId: { in: scopes || [] } }
+				], 
+			},
 			select: { id: true }
 		});
 		if (!campaign) throw new Error('Campaign not found');
@@ -352,12 +380,17 @@ export class RepositoryPrisma {
 		};
 	}
 
-	async findCampaignExecutionById(campaignId: string, executionId: string, businessIds: string[]) {
+	async findCampaignExecutionById(campaignId: string, executionId: string, scopes: string[]) {
 		return prisma.campaignExecution.findFirst({
 			where: {
 				id: executionId,
 				campaignId: campaignId,
-				campaign: { businessId: { in: businessIds || [] } }
+				campaign: { 
+					OR: [
+						{ businessId: { in: scopes || [] } },
+						{ brandId: { in: scopes || [] } }
+					], 
+				}
 			},
 			include: { stepExecutions: true }
 		});
@@ -385,9 +418,15 @@ export class RepositoryPrisma {
 		});
 	}
 
-	async manageCampaignExecution(campaignId: string, executionId: string, businessIds: string[], data: { action: 'retry' | 'stop' }) {
+	async manageCampaignExecution(campaignId: string, executionId: string, scopes: string[], data: { action: 'retry' | 'stop' }) {
 		const campaign = await prisma.campaign.findFirst({
-			where: { id: campaignId, businessId: { in: businessIds || [] } },
+			where: { 
+				id: campaignId, 
+				OR: [
+					{ businessId: { in: scopes || [] } },
+					{ brandId: { in: scopes || [] } }
+				], 
+			},
 			select: { id: true }
 		});
 		if (!campaign) throw new Error('Campaign not found');
@@ -427,10 +466,19 @@ export class RepositoryPrisma {
 	}
 
 	// Step executions
-	async findStepExecutions(campaignId: string, stepId: string, businessIds: string[], page: number, pageSize: number) {
+	async findStepExecutions(campaignId: string, stepId: string, scopes: string[], page: number, pageSize: number) {
 		// ownership via step relation
 		const step = await prisma.campaignStep.findFirst({
-			where: { id: stepId, campaignId, campaign: { businessId: { in: businessIds || [] } } },
+			where: { 
+				id: stepId, 
+				campaignId, 
+				campaign: { 
+					OR: [
+						{ businessId: { in: scopes || [] } },
+						{ brandId: { in: scopes || [] } }
+					], 
+				}
+			},
 			select: { id: true }
 		});
 		if (!step) throw new Error('Campaign step not found');
@@ -449,12 +497,20 @@ export class RepositoryPrisma {
 		return { items, page, pageSize, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 };
 	}
 
-	async findStepExecutionById(campaignId: string, stepId: string, executionId: string, businessIds: string[]) {
+	async findStepExecutionById(campaignId: string, stepId: string, executionId: string, scopes: string[]) {
 		return prisma.stepExecution.findFirst({
 			where: {
 				id: executionId,
 				campaignStepId: stepId,
-				campaignStep: { campaignId, campaign: { businessId: { in: businessIds || [] } } }
+				campaignStep: { 
+					campaignId, 
+					campaign: { 
+						OR: [
+							{ businessId: { in: scopes || [] } },
+							{ brandId: { in: scopes || [] } }
+						], 
+					}
+				}
 			}
 		});
 	}
@@ -470,13 +526,21 @@ export class RepositoryPrisma {
 		});
 	}
 
-	async findStepExecutionRecipients(campaignId: string, stepId: string, executionId: string, businessIds: string[], page: number, pageSize: number) {
+	async findStepExecutionRecipients(campaignId: string, stepId: string, executionId: string, scopes: string[], page: number, pageSize: number) {
 		// verify ownership via stepExecution -> step -> campaign
 		const stepExecution = await prisma.stepExecution.findFirst({
 			where: {
 				id: executionId,
 				campaignStepId: stepId,
-				campaignStep: { campaignId, campaign: { businessId: { in: businessIds || [] } } }
+				campaignStep: { 
+					campaignId, 
+					campaign: { 
+						OR: [
+							{ businessId: { in: scopes || [] } },
+							{ brandId: { in: scopes || [] } }
+						], 
+					}
+				}
 			},
 			select: { id: true }
 		});

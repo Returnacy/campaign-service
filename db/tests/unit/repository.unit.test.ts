@@ -85,9 +85,16 @@ describe('RepositoryPrisma Unit', () => {
     expect((found as any)?.steps?.[0]?.template).toBeTruthy();
   });
 
-  test('findCampaignsByBusinessOrBrandId returns list', async () => {
+  test('findCampaignsByBusinessId returns list', async () => {
     vi.spyOn(prisma.campaign, 'findMany').mockResolvedValueOnce([baseCampaign]);
-    const list = await repo.findCampaignsByBusinessOrBrandId('biz1');
+    const list = await repo.findCampaignsByBusinessId('biz1');
+    expect(list.length).toBe(1);
+  });
+
+  test('findCampaignsByBrandId returns list', async () => {
+    const brandCampaign = { ...baseCampaign, id: 'camp2', businessId: null, brandId: 'brand1' } as any;
+    vi.spyOn(prisma.campaign, 'findMany').mockResolvedValueOnce([brandCampaign]);
+    const list = await repo.findCampaignsByBrandId('brand1');
     expect(list.length).toBe(1);
   });
 
@@ -116,14 +123,14 @@ describe('RepositoryPrisma Unit', () => {
 
   test('updateCampaign returns original when no fields provided', async () => {
     const findSpy = vi.spyOn(prisma.campaign, 'findUnique').mockResolvedValueOnce(baseCampaign);
-    const res = await repo.updateCampaign('camp1', ['biz1'], {});
+    const res = await repo.updateCampaign('camp1', ['biz1'], {} as any);
     expect(res).toBe(baseCampaign);
     expect(findSpy).toHaveBeenCalled();
   });
 
   test('updateCampaign updates fields when provided', async () => {
     vi.spyOn(prisma.campaign, 'update').mockResolvedValueOnce({ ...baseCampaign, name: 'New' });
-    const res = await repo.updateCampaign('camp1', ['biz1'], { name: 'New' });
+    const res = await repo.updateCampaign('camp1', ['biz1'], { name: 'New' } as any);
     expect(res.name).toBe('New');
   });
 
