@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { deleteCampaignStepService } from './delete.step.service.js';
+import { listScopesByRoles } from '../../../../../../../utils/userAuthGuard.js';
 
 export async function deleteCampaignStepHandler(request: FastifyRequest<{ Params: { campaignId: string, stepId: string } }>, reply: FastifyReply) {
   try {
@@ -7,11 +8,12 @@ export async function deleteCampaignStepHandler(request: FastifyRequest<{ Params
     if (!auth)
       throw new Error('No auth information found in request');
 
-    const businessIds = auth.businessIds as string[];
-    if (!businessIds)
-      throw new Error('No businessIds found in auth information');
+    const scopes = listScopesByRoles(request, ['admin']);
+    if (!scopes || scopes.length === 0)
+      throw new Error('No membership scopes found in auth information');
 
-    await deleteCampaignStepService(request, businessIds);
+
+    await deleteCampaignStepService(request, scopes);
     return reply.status(204).send();
   } catch (error) {
     return reply.status(400).send(error);

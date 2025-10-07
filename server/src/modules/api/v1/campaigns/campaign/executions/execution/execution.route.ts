@@ -1,15 +1,15 @@
 import type { FastifyInstance } from 'fastify';
-import { requireRole } from '../../../../../../../utils/authGuards.js';
+import { requireMembershipRole } from '../../../../../../../utils/userAuthGuard.js';
 import { getCampaignExecutionHandler } from './get.execution.controller.js';
 import { postCampaignExecutionHandler } from './post.execution.controller.js';
 
 export async function executionRoutes(server: FastifyInstance) {
   server.get('/:executionId', {
-    preHandler: requireRole('read', 'campaign-service'),
+    preHandler: requireMembershipRole(['admin']),
     handler: getCampaignExecutionHandler
   });
   server.post('/:executionId', {
-    preHandler: requireRole('manage', 'campaign-service'),
+    preHandler: requireMembershipRole(['admin']),
     handler: postCampaignExecutionHandler
   });
 }

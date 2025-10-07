@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { getCampaignsService } from './get.campaigns.service.js';
+import { listScopesByRoles } from '../../../../utils/userAuthGuard.js';
 
 export async function getCampaignsHandler(request: FastifyRequest, reply: FastifyReply) {
   try {
@@ -8,7 +9,7 @@ export async function getCampaignsHandler(request: FastifyRequest, reply: Fastif
     if (!auth)
       throw new Error('No auth information found in request');
 
-    const businessIds = auth.businessIds as string[];
+    const businessIds = listScopesByRoles(request, ['admin', 'brand_manager', 'manager']);
     if (!businessIds)
       throw new Error('No businessIds found in auth information');
 

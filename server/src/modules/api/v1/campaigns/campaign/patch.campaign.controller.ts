@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { patchCampaignService } from './patch.campaign.service.js';
+import { listScopesByRoles } from '../../../../../utils/userAuthGuard.js';
 import { updateCampaignSchema } from '@campaign-service/types';
 
 export async function patchCampaignHandler(request: FastifyRequest<{ Params: { campaignId: string } }>, reply: FastifyReply) {
@@ -9,13 +10,13 @@ export async function patchCampaignHandler(request: FastifyRequest<{ Params: { c
     if (!auth)
       throw new Error('No auth information found in request');
 
-    const businessIds = auth.businessIds as string[];
-    if (!businessIds)
-      throw new Error('No businessIds found in auth information');
+    const scopes = listScopesByRoles(request, ['admin']);
+    if (!scopes || scopes.length === 0)
+      throw new Error('No membership scopes found in auth information');
 
     const input = updateCampaignSchema.parse(request.body);
 
-    const campaign = await patchCampaignService(request, businessIds, input);
+    const campaign = await patchCampaignService(request, scopes, input);
     return reply.send(campaign);
   } catch (error) {
     return reply.status(400).send(error);

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { requireRole } from '../../../../../../../utils/authGuards.js';
+import { requireMembershipRole } from '../../../../../../../utils/userAuthGuard.js';
 import { getCampaignStepHandler } from './get.step.controller.js';
 import { patchCampaignStepHandler } from './patch.step.controller.js';
 import { deleteCampaignStepHandler } from './delete.step.controller.js';
@@ -8,15 +8,15 @@ import { stepExecutionsRoutes } from './executions/executions.route.js';
 
 export async function stepRoutes(server: FastifyInstance) {
   server.get('/:stepId', {
-    preHandler: requireRole('read', 'campaign-service'),
+    preHandler: requireMembershipRole(['admin']),
     handler: getCampaignStepHandler
   });
   server.patch('/:stepId', {
-    preHandler: requireRole('update', 'campaign-service'),
+    preHandler: requireMembershipRole(['admin']),
     handler: patchCampaignStepHandler
   });
   server.delete('/:stepId', {
-    preHandler: requireRole('update', 'campaign-service'),
+    preHandler: requireMembershipRole(['admin']),
     handler: deleteCampaignStepHandler
   });
 

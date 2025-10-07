@@ -1,24 +1,29 @@
 import type { FastifyInstance } from 'fastify';
-import { requireRole } from '../../../../../utils/authGuards.js';
+import { requireMembershipRole } from '../../../../../utils/userAuthGuard.js';
 import { getCampaignHandler } from './get.campaign.controller.js';
 import { patchCampaignHandler } from './patch.campaign.controller.js';
-import { postCampaignsHandler } from '../post.campaigns.controller.js';
+import { postCampaignHandler } from './post.campaign.controller.js';
+import { deleteCampaignHandler } from './delete.campaign.controller.js';
 import { stepsRoutes } from './steps/steps.route.js';
 import { executionsRoutes } from './executions/executions.route.js';
 
 export async function campaignRoutes(server: FastifyInstance) {
   server.get('/:campaignId', {
-    preHandler: requireRole('read', 'campaign-service'),
+    preHandler: requireMembershipRole(['admin', 'brand_manager', 'manager']),
     handler: getCampaignHandler
   });
   server.patch('/:campaignId', {
-    preHandler: requireRole('update', 'campaign-service'),
+    preHandler: requireMembershipRole(['admin']),
     handler: patchCampaignHandler
   });
   server.post('/:campaignId', {
-    preHandler: requireRole('manage', 'campaign-service'),
-    handler: postCampaignsHandler
+    preHandler: requireMembershipRole(['admin']),
+    handler: postCampaignHandler
   })
+  server.delete('/:campaignId', {
+    preHandler: requireMembershipRole(['admin']),
+    handler: deleteCampaignHandler
+  });
 
   server.register(stepsRoutes, { prefix: '/:campaignId' });
   server.register(executionsRoutes, { prefix: '/:campaignId' });

@@ -1,4 +1,5 @@
 import { getCampaignExecutionsService } from './get.executions.service.js';
+import { listScopesByRoles } from '../../../../../../utils/userAuthGuard.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Query } from '@campaign-service/types';
 
@@ -8,11 +9,11 @@ export async function getCampaignExecutionsHandler(request: FastifyRequest<{ Par
     if (!auth)
       throw new Error('No auth information found in request');
 
-    const businessIds = auth.businessIds as string[];
-    if (!businessIds)
-      throw new Error('No businessIds found in auth information');
+    const scopes = listScopesByRoles(request, ['admin']);
+    if (!scopes || scopes.length === 0)
+      throw new Error('No membership scopes found in auth information');
 
-  const result = await getCampaignExecutionsService(request, businessIds);
+  const result = await getCampaignExecutionsService(request, scopes);
   return reply.send(result);
   } catch (error) {
     return reply.status(400).send(error);

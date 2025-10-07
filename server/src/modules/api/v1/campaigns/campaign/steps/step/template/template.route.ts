@@ -1,15 +1,15 @@
 import type { FastifyInstance } from 'fastify';
-import { requireRole } from '../../../../../../../../utils/authGuards.js';
+import { requireMembershipRole } from '../../../../../../../../utils/userAuthGuard.js';
 import { getStepTemplateHandler } from './get.template.controller.js';
 import { patchStepTemplateHandler } from './patch.template.controller.js';
 
 export async function templateRoutes(server: FastifyInstance) {
   server.get('/template', {
-    preHandler: requireRole('read', 'campaign-service'),
+    preHandler: requireMembershipRole(['admin', 'brand_manager', 'manager']),
     handler: getStepTemplateHandler
   });
   server.patch('/template', {
-    preHandler: requireRole('update', 'campaign-service'),
+    preHandler: requireMembershipRole(['admin']),
     handler: patchStepTemplateHandler
   });
 }

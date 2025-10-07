@@ -1,0 +1,1 @@
+export type MembershipScope = { brandId: string | null; businessId: string | null };

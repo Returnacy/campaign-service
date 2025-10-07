@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { getCampaignStepService } from './get.step.service.js';
+import { listScopesByRoles } from '../../../../../../../utils/userAuthGuard.js';
 
 export async function getCampaignStepHandler(request: FastifyRequest<{ Params: { campaignId: string, stepId: string } }>, reply: FastifyReply) {
   try {
@@ -7,11 +8,11 @@ export async function getCampaignStepHandler(request: FastifyRequest<{ Params: {
     if (!auth)
       throw new Error('No auth information found in request');
 
-    const businessIds = auth.businessIds as string[];
-    if (!businessIds)
-      throw new Error('No businessIds found in auth information');
+    const scopes = listScopesByRoles(request, ['admin']);
+    if (!scopes || scopes.length === 0)
+      throw new Error('No membership scopes found in auth information');
 
-    const step = await getCampaignStepService(request, businessIds);
+    const step = await getCampaignStepService(request, scopes);
     if (!step)
       return reply.status(404).send(new Error('Campaign step not found'));
 
