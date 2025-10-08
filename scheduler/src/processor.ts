@@ -81,13 +81,33 @@ export class Processor {
 
         // 1. Determine capacity per channel
         const businessId = (campaign as any).businessId;
-        const availableMessages: AvailableMessagesResponse = await this.clients.businessClient.getAvailableMessages(businessId);
-        const availableByChannel = normalizeAvailableMessages(availableMessages);
-        let remainingCapacity = computeUserCap([step.channel], availableByChannel as any, {}) || 0;
+        let remainingCapacity = 0;
+        try {
+          // Prefer calling businessClient when available, regardless of config flag (helps tests/mocks)
+          if (this.clients?.businessClient?.getAvailableMessages) {
+            const availableMessages: AvailableMessagesResponse = await this.clients.businessClient.getAvailableMessages(businessId);
+            const availableByChannel = normalizeAvailableMessages(availableMessages);
+            remainingCapacity = computeUserCap([step.channel], availableByChannel as any, {}) || 0;
+          } else if (this.config.businessServiceUrl) {
+            const availableMessages: AvailableMessagesResponse = await this.clients.businessClient.getAvailableMessages(businessId);
+            const availableByChannel = normalizeAvailableMessages(availableMessages);
+            remainingCapacity = computeUserCap([step.channel], availableByChannel as any, {}) || 0;
+          } else {
+            // In integration/dev without business service, allow a default capacity to enable E2E flow
+            remainingCapacity = 1000;
+          }
+        } catch (capErr) {
+          // On failure querying capacity, default to 0 unless OVERRIDE
+          if (process.env.DISABLE_CAPACITY_CHECK === 'true') {
+            remainingCapacity = 1000;
+          } else {
+            remainingCapacity = 0;
+          }
+        }
         if (remainingCapacity <= 0) {
           summary.skipped = true;
           summary.reason = 'no-capacity';
-          await this.repo.updateStepExecution(stepExecution.id, { status: 'SKIPPED' });
+          await this.repo.updateStepExecution(stepExecution.id, { status: 'STOPPED' as any });
           stepSummaries.push(summary);
           continue;
         }
@@ -97,19 +117,21 @@ export class Processor {
         if (userServiceTargetingRules.length === 0) {
           summary.skipped = true;
           summary.reason = 'no-user-targeting-rules';
-          await this.repo.updateStepExecution(stepExecution.id, { status: 'SKIPPED' });
+          await this.repo.updateStepExecution(stepExecution.id, { status: 'STOPPED' as any });
           stepSummaries.push(summary);
           continue;
         }
 
-        const targetingUsers = await this.clients.userClient.getTargetingUsers(userServiceTargetingRules, remainingCapacity);
+  const targetingUsers = await this.clients.userClient.getTargetingUsers(userServiceTargetingRules, remainingCapacity);
+  // Basic trace logs
+  console.log('[scheduler] targeting users fetched', { count: Array.isArray(targetingUsers?.users) ? targetingUsers.users.length : 0, remainingCapacity });
 
         // 3. Guard template existence
         const template = step.template; // singular relation per schema
         if (!template) {
           summary.skipped = true;
           summary.reason = 'missing-template';
-          await this.repo.updateStepExecution(stepExecution.id, { status: 'SKIPPED' });
+          await this.repo.updateStepExecution(stepExecution.id, { status: 'STOPPED' as any });
           stepSummaries.push(summary);
           continue;
         }
@@ -117,7 +139,7 @@ export class Processor {
         if (!targetingUsers || !Array.isArray(targetingUsers.users) || targetingUsers.users.length === 0) {
           summary.skipped = true;
           summary.reason = 'no-users';
-          await this.repo.updateStepExecution(stepExecution.id, { status: 'SKIPPED' });
+          await this.repo.updateStepExecution(stepExecution.id, { status: 'STOPPED' as any });
           stepSummaries.push(summary);
           continue;
         }
@@ -133,7 +155,8 @@ export class Processor {
             });
 
             const scheduleInput = buildScheduleInput({
-              campaignId: stepExecution.id, // using stepExecution id as grouping identifier
+              // Use parent campaign id for stable deduplication across runs
+              campaignId: campaign.id,
               recipient: {
                 id: user.id,
                 email: user.email,
@@ -147,7 +170,9 @@ export class Processor {
               from: 'noreply@returnacy.app'
             });
 
+            console.log('[scheduler] scheduling via messaging-service', { channel: step.channel, recipientId: user.id, campaignId: campaign.id });
             await this.clients.messagingClient.schedule(scheduleInput);
+            console.log('[scheduler] scheduled OK', { recipientId: user.id });
 
             await (this.repo as any).createStepExecutionRecipient(campaign.id, step.id, stepExecution.id, {
               userId: user.id,
@@ -183,7 +208,7 @@ export class Processor {
         if (summary.scheduled === 0 && summary.failed === 0) {
           summary.skipped = true;
           summary.reason = summary.reason || 'nothing-to-do';
-          await this.repo.updateStepExecution(stepExecution.id, { status: 'SKIPPED' });
+          await this.repo.updateStepExecution(stepExecution.id, { status: 'STOPPED' as any });
         } else if (summary.failed > 0 && summary.scheduled === 0) {
           anyStepFailed = true;
           await this.repo.updateStepExecution(stepExecution.id, { status: 'FAILED' });
@@ -243,7 +268,7 @@ export class Processor {
     // Update execution status (only execution-level responsibility retained here)
     try {
       if (anyStepFailed) {
-        await (this.repo as any).updateCampaignExecution(campaignExecutionId, { status: finalFailure ? 'FAILED' : 'RETRYING' });
+        await (this.repo as any).updateCampaignExecution(campaignExecutionId, { status: finalFailure ? 'FAILED' : 'RUNNING' });
       } else {
         await (this.repo as any).updateCampaignExecution(campaignExecutionId, { status: 'COMPLETED' });
       }

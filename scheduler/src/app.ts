@@ -16,16 +16,26 @@ function parseBusinessIds(): string[] {
 async function main() {
   const redisUrl = process.env.REDIS_URL || 'redis://redis:6379';
   const intervalMs = Number(process.env.SCHEDULE_INTERVAL_MS || 30000);
+  const dailyAt = process.env.SCHEDULER_DAILY_AT; // optional 'HH:MM' 24h format
+  const oneShot = process.env.SCHEDULER_ONE_SHOT === 'true';
   const businessIds = parseBusinessIds();
 
-  logger.info({ redisUrl, intervalMs, businessIdsCount: businessIds.length }, 'Scheduler service starting');
+  logger.info({ redisUrl, intervalMs, dailyAt, oneShot, businessIdsCount: businessIds.length }, 'Scheduler service starting');
 
-  const redis = new Redis(redisUrl);
+  const redis = new Redis(redisUrl, { maxRetriesPerRequest: null as any });
 
   // Start worker to process enqueued campaign executions
   const repo = new RepositoryPrisma();
   const processor = new Processor(repo);
   const worker = createWorker('campaign.executions', processor, logger, redis, Number(process.env.DISPATCHER_CONCURRENCY || 5));
+
+  const shutdown = async () => {
+    logger.info('Shutting down scheduler');
+    try { if (handle) clearInterval(handle as unknown as number); } catch {}
+    try { await worker.close(); } catch {}
+    try { await redis.quit(); } catch {}
+    process.exit(0);
+  };
 
   const tick = async () => {
     try {
@@ -36,18 +46,54 @@ async function main() {
     }
   };
 
-  // fire immediately, then on interval
-  await tick();
-  const handle = setInterval(tick, intervalMs);
-  (handle as any).unref?.();
+  const dayMs = 24 * 60 * 60 * 1000;
 
-  const shutdown = async () => {
-    logger.info('Shutting down scheduler');
-    clearInterval(handle as unknown as number);
-    try { await worker.close(); } catch {}
-    try { await redis.quit(); } catch {}
-    process.exit(0);
+  let handle: any;
+
+  const scheduleDailyAt = (hhmm: string) => {
+    const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
+    if (!m) {
+      logger.warn({ dailyAt: hhmm }, 'Invalid SCHEDULER_DAILY_AT format; expected HH:MM. Falling back to interval.');
+      return false;
+    }
+    const hour = Number(m[1]);
+    const minute = Number(m[2]);
+    if (hour > 23 || minute > 59) {
+      logger.warn({ dailyAt: hhmm }, 'Invalid SCHEDULER_DAILY_AT time; falling back to interval.');
+      return false;
+    }
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(hour, minute, 0, 0);
+    if (next <= now) next.setDate(next.getDate() + 1);
+    const initialDelay = next.getTime() - now.getTime();
+    logger.info({ runAt: next.toISOString(), initialDelayMs: initialDelay }, 'First daily scheduler tick planned');
+
+    setTimeout(async () => {
+      await tick();
+      if (oneShot) {
+        await shutdown();
+        return;
+      }
+      handle = setInterval(tick, dayMs);
+      handle?.unref?.();
+    }, initialDelay).unref?.();
+    return true;
   };
+
+  // Modes precedence: dailyAt > oneShot > fixed interval
+  if (dailyAt && scheduleDailyAt(dailyAt)) {
+    // scheduled via dailyAt, nothing else to do here
+  } else if (oneShot) {
+    await tick();
+    await shutdown();
+    return; // ensure no further setup
+  } else {
+    // fire immediately, then on provided interval
+    await tick();
+    handle = setInterval(tick, intervalMs);
+    handle?.unref?.();
+  }
 
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);

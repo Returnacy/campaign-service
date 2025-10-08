@@ -27,9 +27,27 @@ export class CampaignOrchestrator {
     if (campaign.status !== 'ACTIVE') return { skipped: true, reason: 'status-not-active' };
 
     try {
+      const allowOneTimeRerun = process.env.SCHEDULER_ALLOW_ONE_TIME_RERUN === 'true';
+      const oneTimeRerunIntervalMs = Number(process.env.SCHEDULER_ONE_TIME_RERUN_INTERVAL_MS ?? '300000'); // default 5min
       if (campaign.scheduleType === 'ONE_TIME') {
         const latest = await (this.repo as any).findLatestCampaignExecution?.(campaign.id, ['COMPLETED', 'RUNNING']);
-        if (latest) return { skipped: true, reason: 'one-time-already-executed' };
+        if (latest) {
+          if (allowOneTimeRerun) {
+            const now = Date.now();
+            const last = new Date(latest.runAt).getTime();
+            if (isFinite(oneTimeRerunIntervalMs) && oneTimeRerunIntervalMs > 0) {
+              const due = now - last >= oneTimeRerunIntervalMs;
+              if (!due) {
+                this.logger?.info?.({ campaignId: campaign.id, latestRunAt: latest.runAt, minIntervalMs: oneTimeRerunIntervalMs }, 'orchestrator: one-time rerun allowed but not yet due');
+                return { skipped: true, reason: 'one-time-rerun-not-due' };
+              }
+            }
+            this.logger?.info?.({ campaignId: campaign.id, latestRunAt: latest.runAt }, 'orchestrator: one-time rerun allowed by env');
+          } else {
+            this.logger?.info?.({ campaignId: campaign.id, latestRunAt: latest.runAt }, 'orchestrator: one-time already executed');
+            return { skipped: true, reason: 'one-time-already-executed' };
+          }
+        }
       } else if (campaign.scheduleType === 'RECURRING' && campaign.recurrenceRule) {
         const latest = await (this.repo as any).findLatestCampaignExecution?.(campaign.id, ['COMPLETED']);
         if (latest) {
@@ -42,7 +60,10 @@ export class CampaignOrchestrator {
               case 'MONTHLY': { const next = new Date(last); next.setMonth(next.getMonth()+1); due = now >= next; break; }
               default: due = true;
             }
-            if (!due) return { skipped: true, reason: 'recurrence-not-due', lastRunAt: latest.runAt };
+            if (!due) {
+              this.logger?.info?.({ campaignId: campaign.id, lastRunAt: latest.runAt, rule: campaign.recurrenceRule }, 'orchestrator: recurrence not due');
+              return { skipped: true, reason: 'recurrence-not-due', lastRunAt: latest.runAt };
+            }
         }
       }
     } catch (err) {
@@ -61,7 +82,7 @@ export class CampaignOrchestrator {
     };
 
     await this.queue.add('process-campaign-execution', jobPayload, { removeOnComplete: 500, removeOnFail: 1000 });
-    this.logger?.info?.('Enqueued campaign execution', { campaignId: campaign.id, executionId: execution.id });
+    this.logger?.info?.({ campaignId: campaign.id, executionId: execution.id }, 'orchestrator: enqueued campaign execution');
     return { enqueued: true, executionId: execution.id };
   }
 }
