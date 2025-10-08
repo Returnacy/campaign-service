@@ -1,7 +1,11 @@
 import { PrismaClient } from "@prisma/client";
 
+const prismaLogs: Array<'query' | 'info' | 'warn' | 'error'> = ['warn', 'error'];
+if (process.env.PRISMA_LOG_INFO === 'true') prismaLogs.push('info');
+if (process.env.PRISMA_LOG_QUERY === 'true') prismaLogs.push('query');
+
 export const prisma = new PrismaClient({
-  log: ['query', 'info', 'warn', 'error'],
+  log: prismaLogs,
 });
 
 const gracefulShutdown = async () => {
