@@ -15,7 +15,7 @@ export function loadConfig(): Config {
 
   return {
     isTest,
-    businessServiceUrl: process.env.BUSINESS_SERVICE_URL || 'http://localhost:3000',
+  businessServiceUrl: process.env.BUSINESS_SERVICE_URL || '',
     userServiceUrl: process.env.USER_SERVICE_URL || 'http://localhost:3000',
     messagingServiceUrl: process.env.MESSAGING_SERVICE_URL || 'http://localhost:3000',
     keycloak: {
