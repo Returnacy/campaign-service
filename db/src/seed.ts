@@ -7,14 +7,19 @@ async function main() {
   const brandId = 'brand_seed_1';
   const businessId = 'biz_seed_1';
 
-  // Create a draft campaign scoped to the business, with one basic step and template
-  const campaign = await prisma.campaign.create({
+  // Idempotent seed: reuse existing campaign if present
+  const existing = await prisma.campaign.findFirst({
+    where: { businessId, name: 'Welcome Campaign' },
+    include: { steps: { include: { template: true, targetingRules: true } } },
+  });
+
+  const campaign = existing ?? await prisma.campaign.create({
     data: {
       businessId,
       brandId: null,
       name: 'Welcome Campaign',
       description: 'Seeded draft campaign',
-      status: 'DRAFT',
+      status: 'ACTIVE',
       scheduleType: 'ONE_TIME',
       startAt: null,
       endAt: null,
@@ -32,6 +37,16 @@ async function main() {
                 bodyText: 'Thanks for joining! This is a seeded message.',
                 bodyHtml: '<p>Thanks for joining! This is a seeded message.</p>',
               },
+            },
+            targetingRules: {
+              create: [
+                {
+                  database: 'USER',
+                  field: 'plan',
+                  operator: 'EQUALS',
+                  value: 'free' as any,
+                },
+              ],
             },
           },
         ],
