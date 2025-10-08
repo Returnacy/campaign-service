@@ -19,11 +19,11 @@ export class MessagingClient {
   async schedule(input: ScheduleInput) {
     const token = await this.tokenService.getAccessToken();
     const idempotencyKey = `${input.campaignId ?? 'no-campaign'}:${input.recipientId}:${input.channel}:${input.scheduledAt.toISOString()}`;
-    await this.requestWithRetry(() => axios.post(`${this.baseUrl}/api/v1/messages/schedule`, input, {
+    const body: any = { ...input, idempotencyKey };
+    await this.requestWithRetry(() => axios.post(`${this.baseUrl}/api/v1/messages`, body, {
       timeout: this.timeoutMs,
       headers: {
         Authorization: `Bearer ${token}`,
-        'Idempotency-Key': idempotencyKey,
         'Content-Type': 'application/json',
       }
     }));
