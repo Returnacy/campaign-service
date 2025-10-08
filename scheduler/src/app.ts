@@ -1,6 +1,9 @@
 import { Redis } from 'ioredis';
 import pino from 'pino';
 import { scheduler as runScheduler } from './scheduler.js';
+import { createWorker } from './worker.js';
+import { Processor } from './processor.js';
+import { RepositoryPrisma } from '@campaign-service/db';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info', name: 'campaign-service.scheduler' });
 
@@ -19,6 +22,11 @@ async function main() {
 
   const redis = new Redis(redisUrl);
 
+  // Start worker to process enqueued campaign executions
+  const repo = new RepositoryPrisma();
+  const processor = new Processor(repo);
+  const worker = createWorker('campaign.executions', processor, logger, redis, Number(process.env.DISPATCHER_CONCURRENCY || 5));
+
   const tick = async () => {
     try {
       await runScheduler({ redisConnection: redis, logger, businessIds });
@@ -36,6 +44,7 @@ async function main() {
   const shutdown = async () => {
     logger.info('Shutting down scheduler');
     clearInterval(handle as unknown as number);
+    try { await worker.close(); } catch {}
     try { await redis.quit(); } catch {}
     process.exit(0);
   };
