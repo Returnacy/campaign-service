@@ -95,6 +95,7 @@ model CampaignStep {
   name            String
   description     String?
   channel         Channel
+  prizeId         String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 

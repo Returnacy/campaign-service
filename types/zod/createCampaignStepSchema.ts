@@ -10,5 +10,6 @@ export const createCampaignStepSchema = z.object({
   description: z.string().max(500).optional(),
   channel: z.enum(['EMAIL', 'SMS', 'PUSH', 'IN_APP', 'WHATSAPP', 'VOICE']) as z.ZodType<Channel>,
   template: createStepTemplateSchema,
+  prize: z.object({ id: z.string().min(1) }).optional(),
   targetingRules: z.array(createTargetingRuleSchema).optional(),
 });

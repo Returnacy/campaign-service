@@ -12,5 +12,6 @@ export type Step = {
   createdAt: Date;
   updatedAt: Date;
   template: Template;
+  prize?: { id: string } | null;
   targetingRules: TargetingRule[];
 }

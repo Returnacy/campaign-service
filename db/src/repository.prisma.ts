@@ -86,6 +86,9 @@ export class RepositoryPrisma {
 							description: step.description,
 							channel: step.channel,
 						};
+						if ((step as any).prize?.id) {
+							stepData.prizeId = (step as any).prize.id;
+						}
 						if (step.template) {
 							stepData.template = {
 								create: {
@@ -318,6 +321,7 @@ export class RepositoryPrisma {
 		if ('name' in data) updateData.name = data.name;
 		if ('description' in data) updateData.description = data.description ?? null;
 		if ('channel' in data) updateData.channel = data.channel;
+		if ((data as any).prize?.id !== undefined) updateData.prizeId = (data as any).prize ? (data as any).prize.id : null;
 
 		if (Object.keys(updateData).length === 0) {
 			return existing; // nothing to update

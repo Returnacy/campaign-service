@@ -1,10 +1,11 @@
 import axios, { AxiosError } from 'axios';
 import { TokenService } from '../utils/tokenService.js';
+import { resolveUserBaseUrl } from '../utils/userServiceUrlResolver.js';
 import type { TargetingUserResponse } from '../../types/targetingUserResponse.js';
 import type { Cfg } from '../../types/cfg.js';
 
 export class UserClient {
-  private baseUrl: string;
+  private baseUrl: string; // fallback base URL
   private tokenService: TokenService;
   private timeoutMs: number;
   private maxRetries: number;
@@ -16,14 +17,22 @@ export class UserClient {
     this.maxRetries = cfg.maxRetries ?? 3;
   }
 
-  async getTargetingUsers(rules: any[], limit: number): Promise<TargetingUserResponse> {
+  // Backward compatible signature: either (rules, limit) or a single object { rules, limit, prize }
+  async getTargetingUsers(rulesOrObj: any[] | { rules: any[]; limit: number; prize?: { id: string }, businessId?: string, brandId?: string }, limitMaybe?: number): Promise<TargetingUserResponse> {
     const token = await this.tokenService.getAccessToken();
-    const req = {
+    const { rules, limit, prize, businessId, brandId } = Array.isArray(rulesOrObj)
+      ? { rules: rulesOrObj, limit: limitMaybe as number, prize: undefined, businessId: undefined, brandId: undefined }
+      : { rules: rulesOrObj.rules, limit: rulesOrObj.limit, prize: (rulesOrObj as any).prize, businessId: (rulesOrObj as any).businessId, brandId: (rulesOrObj as any).brandId };
+    const req: any = {
       targetingRules: rules,
       limit
     };
+    if (prize && prize.id) req.prize = { id: prize.id };
+    if (businessId) req.businessId = businessId;
+    if (brandId) req.brandId = brandId;
+    const resolvedBase = (businessId ? resolveUserBaseUrl(businessId) : null) || this.baseUrl;
     return await this.requestWithRetry<TargetingUserResponse>(() => axios.post(
-      `${this.baseUrl}/internal/v1/users/query`,
+      `${resolvedBase}/internal/v1/users/query`,
       req,
       {
         timeout: this.timeoutMs,

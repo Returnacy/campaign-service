@@ -122,9 +122,14 @@ export class Processor {
           continue;
         }
 
-  const targetingUsers = await this.clients.userClient.getTargetingUsers(userServiceTargetingRules, remainingCapacity);
-  // Basic trace logs
-  console.log('[scheduler] targeting users fetched', { count: Array.isArray(targetingUsers?.users) ? targetingUsers.users.length : 0, remainingCapacity });
+        // Forward optional prize to user-service to issue/reuse coupons per targeted user
+        const targetingUsers = await this.clients.userClient.getTargetingUsers({ 
+          rules: userServiceTargetingRules, 
+          limit: remainingCapacity, 
+          prize: (step as any).prizeId ? { id: (step as any).prizeId } : undefined 
+        });
+        // Basic trace logs
+        console.log('[scheduler] targeting users fetched', { count: Array.isArray(targetingUsers?.users) ? targetingUsers.users.length : 0, remainingCapacity });
 
         // 3. Guard template existence
         const template = step.template; // singular relation per schema
