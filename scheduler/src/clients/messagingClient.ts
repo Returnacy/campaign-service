@@ -24,6 +24,23 @@ export class MessagingClient {
     const idempotencyKey = `${input.campaignId ?? 'no-campaign'}:${input.recipientId}:${input.channel}:${minuteBucket}`;
     const body: any = { ...input, idempotencyKey };
 
+    // Coerce payload to match messaging-service schema (messageSchema)
+    body.payload = body.payload || {};
+    if (body.payload.subject === undefined) body.payload.subject = null;
+    if (body.payload.bodyHtml === undefined) body.payload.bodyHtml = null;
+    if (!body.payload.bodyText || String(body.payload.bodyText).length < 2) {
+      body.payload.bodyText = (body.payload.bodyText && String(body.payload.bodyText).length > 0)
+        ? String(body.payload.bodyText) + ' '
+        : 'OK';
+    }
+    // Normalize recipient fields: drop nullish contact fields and ensure name fallback
+    body.payload.to = body.payload.to || {};
+    if (body.payload.to.email == null || body.payload.to.email === '') delete body.payload.to.email;
+    if (body.payload.to.phone == null || body.payload.to.phone === '') delete body.payload.to.phone;
+    if (!body.payload.to.name || String(body.payload.to.name).length < 2) {
+      body.payload.to.name = 'Customer';
+    }
+
     // Normalize for messaging-service schema
     const isUuid = (v: any) => typeof v === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(v);
     body.campaignId = isUuid(body.campaignId) ? body.campaignId : null; // schema: z.uuid().nullable()
