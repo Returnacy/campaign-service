@@ -56,13 +56,15 @@ export class RepositoryPrisma {
 
 	async findCampaignsByBusinessId(businessId: string): Promise<Campaign[]> {
 		return prisma.campaign.findMany({
-			where: { businessId }
+			where: { businessId },
+			orderBy: [ { createdAt: 'asc' }, { id: 'asc' } ]
 		});
 	}
 
 	async findCampaignsByBrandId(brandId: string): Promise<Campaign[]> {
 		return prisma.campaign.findMany({
-			where: { brandId }
+			where: { brandId },
+			orderBy: [ { createdAt: 'asc' }, { id: 'asc' } ]
 		});
 	}
 
