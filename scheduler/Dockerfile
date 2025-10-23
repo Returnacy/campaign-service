@@ -46,6 +46,7 @@ COPY --from=build /app/package.json /app/pnpm-workspace.yaml /app/tsconfig.base.
 COPY --from=build /app/scheduler/package.json ./scheduler/package.json
 COPY --from=build /app/scheduler/dist ./scheduler/dist
 COPY --from=build /app/scheduler/node_modules ./scheduler/node_modules
+COPY --from=build /app/scheduler/business-service-map.json ./scheduler/business-service-map.json
 COPY --from=build /app/db/package.json ./db/package.json
 COPY --from=build /app/db/dist ./db/dist
 COPY --from=build /app/db/node_modules ./db/node_modules
