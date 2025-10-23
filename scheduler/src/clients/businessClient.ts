@@ -1,10 +1,11 @@
 import axios, { AxiosError } from 'axios';
 import { TokenService } from '../utils/tokenService.js';
+import { resolveBusinessBaseUrl } from '../utils/businessServiceUrlResolver.js';
 import type { AvailableMessagesResponse } from '../../types/availableMessagesResponse.js';
 import type { Cfg } from '../../types/cfg.js';
 
 export class BusinessClient {
-  private baseUrl: string;
+  private baseUrl: string; // default/fallback base URL
   private tokenService: TokenService;
   private timeoutMs: number;
   private maxRetries: number;
@@ -18,13 +19,14 @@ export class BusinessClient {
 
   async getAvailableMessages(businessId: string): Promise<AvailableMessagesResponse> {
     const token = await this.tokenService.getAccessToken();
+    const resolvedBase = resolveBusinessBaseUrl(businessId) || this.baseUrl;
     return this.requestWithRetry<AvailableMessagesResponse>(() =>
       axios.post(
-        `${this.baseUrl}/internal/v1/business/${businessId}/available-messages`,
-        null,
+        `${resolvedBase}/internal/v1/business/${businessId}/available-messages`,
+        {},
         {
           timeout: this.timeoutMs,
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         }
       )
     );
