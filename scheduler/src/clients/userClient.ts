@@ -1,6 +1,5 @@
 import axios, { AxiosError } from 'axios';
 import { TokenService } from '../utils/tokenService.js';
-import { resolveUserBaseUrl } from '../utils/userServiceUrlResolver.js';
 import type { TargetingUserResponse } from '../../types/targetingUserResponse.js';
 import type { Cfg } from '../../types/cfg.js';
 
@@ -30,7 +29,7 @@ export class UserClient {
     if (prize && prize.id) req.prize = { id: prize.id };
     if (businessId) req.businessId = businessId;
     if (brandId) req.brandId = brandId;
-    const resolvedBase = (businessId ? resolveUserBaseUrl(businessId) : null) || this.baseUrl;
+    const resolvedBase = this.baseUrl;
     return await this.requestWithRetry<TargetingUserResponse>(() => axios.post(
       `${resolvedBase}/internal/v1/users/query`,
       req,
