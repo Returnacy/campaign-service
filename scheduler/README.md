@@ -8,11 +8,21 @@ Runs periodically (cron/CI) to:
 
 Env vars required:
 - USER_SERVICE_URL
+- BUSINESS_SERVICE_URL (fallback if no mapping)
 - MESSAGING_SERVICE_URL
 - KEYCLOAK_TOKEN_URL
 - KEYCLOAK_CLIENT_ID
 - KEYCLOAK_CLIENT_SECRET
 - DEFAULT_FROM (optional)
+
+Optional URL mapping (multi-tenant discovery):
+- BUSINESS_SERVICE_MAP_FILE: absolute path to a JSON file mapping businessId -> Business Service URL.
+	Supported shapes:
+	- { "https://biz-a.example.com": "<businessId-uuid>", "https://biz-b.example.com": "<uuid>" }
+	- [ ["https://biz-a.example.com", "<uuid>"], ["https://biz-b.example.com", "<uuid>"] ]
+	- [ { "url": "https://biz-a.example.com", "id": "<uuid>" } ]
+	- [ { "key": "https://biz-a.example.com", "value": "<uuid>" } ]
+If no match is found for a given businessId the client falls back to BUSINESS_SERVICE_URL.
 
 Build and run (workspace):
 - pnpm -r build
