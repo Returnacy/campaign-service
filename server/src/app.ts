@@ -22,21 +22,16 @@ const server = Fastify({ logger: true });
 async function main() {
   server.register(fastifyCors, {
     origin: (origin, cb) => {
-      const allowedOrigins = [
-        process.env.USER_SERVICE_URL,
-        process.env.CAMPAIGN_SERVICE_URL,
-      ];
+      const allowed = new Set<string>();
+      const add = (s?: string | null) => { if (s && typeof s === 'string') allowed.add(s); };
+      add(process.env.USER_SERVICE_URL);
+      add(process.env.CAMPAIGN_SERVICE_URL);
+      add(process.env.BUSINESS_SERVICE_URL);
+      add(process.env.FRONTEND_ORIGIN || 'http://localhost:5173');
+      if (process.env.WEBHOOK_URLS) for (const o of process.env.WEBHOOK_URLS.split(',')) add(o.trim());
 
-      if (process.env.WEBHOOK_URLS) {
-        for (const o of process.env.WEBHOOK_URLS.split(',')) {
-          allowedOrigins.push(o);
-        }
-      }
-
-      if (!origin)
-        cb(null, true);
-      else
-        cb(new CorsError('Not allowed by CORS'), true);
+      if (!origin || allowed.has(origin)) return cb(null, true);
+      return cb(new CorsError(`Not allowed by CORS: ${origin}`), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'OPTIONS', 'DELETE'],
