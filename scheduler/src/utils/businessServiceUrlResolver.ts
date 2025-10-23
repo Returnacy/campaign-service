@@ -21,17 +21,18 @@ function loadMap(): any | null {
 
   const candidates: string[] = [];
   // Allow both the original env var and the one used by user-service for symmetry
-  if (process.env.BUSINESS_SERVICE_MAP_FILE) candidates.push(process.env.BUSINESS_SERVICE_MAP_FILE);
   if (process.env.DOMAIN_MAPPING_FILE) candidates.push(process.env.DOMAIN_MAPPING_FILE);
-  // dist/src/utils -> dist/business-service-map.json or domain-mapping.json
-  candidates.push(path.resolve(__dirname, '../business-service-map.json'));
+  if (process.env.BUSINESS_SERVICE_MAP_FILE) candidates.push(process.env.BUSINESS_SERVICE_MAP_FILE);
+  // Prefer the new user-service style domain-mapping.json, fall back to legacy business-service-map.json
+  // dist/src/utils -> dist/domain-mapping.json or business-service-map.json
   candidates.push(path.resolve(__dirname, '../domain-mapping.json'));
+  candidates.push(path.resolve(__dirname, '../business-service-map.json'));
   // dist/src/utils -> project root copies
-  candidates.push(path.resolve(__dirname, '../../business-service-map.json'));
   candidates.push(path.resolve(__dirname, '../../domain-mapping.json'));
+  candidates.push(path.resolve(__dirname, '../../business-service-map.json'));
   // common absolute paths inside container image
-  candidates.push('/app/scheduler/business-service-map.json');
   candidates.push('/app/scheduler/domain-mapping.json');
+  candidates.push('/app/scheduler/business-service-map.json');
 
   const filePath = candidates.find(p => {
     try { return fs.existsSync(p); } catch { return false; }
@@ -48,7 +49,7 @@ function loadMap(): any | null {
 
 function deriveUrlFromKey(key: string): string {
   if (key.startsWith('http://') || key.startsWith('https://')) return key;
-  const scheme = process.env.BUSINESS_SERVICE_URL_SCHEME || 'http';
+  const scheme = process.env.BUSINESS_SERVICE_URL_SCHEME || 'https';
   return `${scheme}://${key}`;
 }
 

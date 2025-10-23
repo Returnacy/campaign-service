@@ -16,13 +16,26 @@ Env vars required:
 - DEFAULT_FROM (optional)
 
 Optional URL mapping (multi-tenant discovery):
-- BUSINESS_SERVICE_MAP_FILE: absolute path to a JSON file mapping businessId -> Business Service URL.
-	Supported shapes:
-	- { "https://biz-a.example.com": "<businessId-uuid>", "https://biz-b.example.com": "<uuid>" }
-	- [ ["https://biz-a.example.com", "<uuid>"], ["https://biz-b.example.com", "<uuid>"] ]
-	- [ { "url": "https://biz-a.example.com", "id": "<uuid>" } ]
-	- [ { "key": "https://biz-a.example.com", "value": "<uuid>" } ]
+- DOMAIN_MAPPING_FILE: absolute path to a JSON file using the same format as user-service `domain-mapping.json`:
+
+	Record<hostname, { brandId: string|null, businessId: string }>
+
+	Example:
+
+	{
+		"localhost": { "brandId": "brand_seed_1", "businessId": "biz_seed_1" },
+		"business.example.com": { "brandId": null, "businessId": "<uuid>" }
+	}
+
+	The scheduler will resolve the business base URL as:
+	- `${BUSINESS_SERVICE_URL_SCHEME||https}://<hostname>` for the matching hostname.
+
+- Legacy fallback (still supported):
+	- BUSINESS_SERVICE_MAP_FILE pointing to a mapping of URL -> businessId, e.g. `{ "https://biz-a.example.com": "<uuid>" }`.
+
 If no match is found for a given businessId the client falls back to BUSINESS_SERVICE_URL.
+
+Note: default scheme for derived URLs is `https`. Override with `BUSINESS_SERVICE_URL_SCHEME=http` if needed for local/dev.
 
 Build and run (workspace):
 - pnpm -r build
