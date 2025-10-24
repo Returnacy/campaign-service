@@ -88,10 +88,6 @@ export class Processor {
             const availableMessages: AvailableMessagesResponse = await this.clients.businessClient.getAvailableMessages(businessId);
             const availableByChannel = normalizeAvailableMessages(availableMessages);
             remainingCapacity = computeUserCap([step.channel], availableByChannel as any, {}) || 0;
-          } else if (this.config.businessServiceUrl) {
-            const availableMessages: AvailableMessagesResponse = await this.clients.businessClient.getAvailableMessages(businessId);
-            const availableByChannel = normalizeAvailableMessages(availableMessages);
-            remainingCapacity = computeUserCap([step.channel], availableByChannel as any, {}) || 0;
           } else {
             // In integration/dev without business service, allow a default capacity to enable E2E flow
             remainingCapacity = 1000;

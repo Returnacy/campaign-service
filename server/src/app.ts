@@ -26,7 +26,11 @@ async function main() {
       const add = (s?: string | null) => { if (s && typeof s === 'string') allowed.add(s); };
       add(process.env.USER_SERVICE_URL);
       add(process.env.CAMPAIGN_SERVICE_URL);
-      add(process.env.BUSINESS_SERVICE_URL);
+      // BUSINESS_SERVICE_URL can contain multiple comma-separated URLs; include all for CORS
+      const bizUrls = process.env.BUSINESS_SERVICE_URL;
+      if (bizUrls) {
+        for (const u of bizUrls.split(',')) add(u.trim());
+      }
       add(process.env.FRONTEND_ORIGIN || 'http://localhost:5173');
       if (process.env.WEBHOOK_URLS) for (const o of process.env.WEBHOOK_URLS.split(',')) add(o.trim());
 
