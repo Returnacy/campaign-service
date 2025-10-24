@@ -1,5 +1,6 @@
 import { Redis } from 'ioredis';
 import pino from 'pino';
+import { parseBusinessIds } from './utils/businessIds.js';
 import { scheduler as runScheduler } from './scheduler.js';
 import { createWorker } from './worker.js';
 import { Processor } from './processor.js';
@@ -7,11 +8,9 @@ import { RepositoryPrisma } from '@campaign-service/db';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info', name: 'campaign-service.scheduler' });
 
-function parseBusinessIds(): string[] {
-  const raw = process.env.BUSINESS_IDS;
-  if (!raw) return [];
-  return raw.split(',').map(s => s.trim()).filter(Boolean);
-}
+// Load domain-mapping.json using the same structure used by user-service/server
+// Structure: Record<hostname, { brandId: string | null; businessId: string }>
+// parseBusinessIds is imported from utils/businessIds
 
 async function main() {
   const redisUrl = process.env.REDIS_URL || 'redis://redis:6379';
