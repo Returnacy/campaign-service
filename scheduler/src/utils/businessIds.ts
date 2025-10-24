@@ -38,8 +38,5 @@ export function parseBusinessIds(): string[] {
     }
     return Array.from(ids);
   }
-  // Fallback: comma-separated BUSINESS_IDS (legacy)
-  const raw = process.env.BUSINESS_IDS;
-  if (!raw) return [];
-  return raw.split(',').map(s => s.trim()).filter(Boolean);
+  return [];
 }
