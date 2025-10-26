@@ -148,6 +148,17 @@ export class Processor {
         for (const user of targetingUsers.users) {
           if (remainingCapacity <= 0) break; // enforce capacity strictly
           try {
+            // Issue coupon (if any) before attempting to schedule messaging
+            const bizId = (campaign as any).businessId as string | undefined;
+            const prizeId = (step as any)?.prizeId as string | undefined;
+            if (bizId && prizeId && this.clients?.businessClient?.ensureCoupon) {
+              try {
+                await this.clients.businessClient.ensureCoupon(user.id, bizId, prizeId);
+              } catch (couponErr) {
+                // eslint-disable-next-line no-console
+                console.warn('[scheduler] failed to ensure coupon', { userId: user.id, businessId: bizId, prizeId, error: (couponErr as Error).message });
+              }
+            }
             const rendered = renderTemplate({
               subject: template.subject,
               bodyText: template.bodyText,

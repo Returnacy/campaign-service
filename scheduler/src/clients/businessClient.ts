@@ -32,6 +32,34 @@ export class BusinessClient {
     );
   }
 
+  // Idempotent coupon creation using a deterministic code derived from (userId, prizeId)
+  async ensureCoupon(userId: string, businessId: string, prizeId: string): Promise<{ created: boolean }>{
+    const token = await this.tokenService.getAccessToken();
+    const resolvedBase = resolveBusinessBaseUrl(businessId) || this.baseUrl;
+    const short = (s: string) => String(s || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
+    const code = `CP-${short(prizeId)}-${short(userId)}`;
+    try {
+      await this.requestWithRetry(() =>
+        axios.post(
+          `${resolvedBase}/api/v1/coupons`,
+          { userId, businessId, prizeId, code },
+          { timeout: this.timeoutMs, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+        )
+      );
+      return { created: true };
+    } catch (e: any) {
+      const status = e?.response?.status ?? 0;
+      const msg = String(e?.message || '').toLowerCase();
+      const body = e?.response?.data;
+      // Treat unique constraint or conflict as already-created = OK
+      if (status === 409 || (typeof body === 'string' && /unique|duplicate|exists/.test(body.toLowerCase())) || /unique|duplicate/.test(msg)) {
+        return { created: false };
+      }
+      // Non-retriable validation errors should bubble up as non-fatal to caller
+      throw e;
+    }
+  }
+
   private async requestWithRetry<T>(fn: () => Promise<{ data: T }>): Promise<T> {
     let attempt = 0;
     let delay = 500; // ms
