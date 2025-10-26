@@ -122,7 +122,9 @@ export class Processor {
         const targetingUsers = await this.clients.userClient.getTargetingUsers({ 
           rules: userServiceTargetingRules, 
           limit: remainingCapacity, 
-          prize: (step as any).prizeId ? { id: (step as any).prizeId } : undefined 
+          prize: (step as any).prizeId ? { id: (step as any).prizeId } : undefined,
+          businessId: (campaign as any)?.businessId,
+          brandId: (campaign as any)?.brandId,
         });
         // Basic trace logs
         console.log('[scheduler] targeting users fetched', { count: Array.isArray(targetingUsers?.users) ? targetingUsers.users.length : 0, remainingCapacity });
