@@ -36,8 +36,8 @@ export class BusinessClient {
   async ensureCoupon(userId: string, businessId: string, prizeId: string): Promise<{ created: boolean }>{
     const token = await this.tokenService.getAccessToken();
     const resolvedBase = resolveBusinessBaseUrl(businessId) || this.baseUrl;
-    const short = (s: string) => String(s || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
-    const code = `CP-${short(prizeId)}-${short(userId)}`;
+    const short = (s: string) => String(s || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
+    const code = `CP-${short(prizeId)}-${short(userId)}-${short(Date.now().toString())}`;
     try {
       await this.requestWithRetry(() =>
         axios.post(
