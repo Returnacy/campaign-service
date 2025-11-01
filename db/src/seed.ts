@@ -10,8 +10,8 @@ async function main() {
   // Minimal seed: create a brand and a business and an example draft campaign.
   // Note: The current schema doesn't define Brand/Business tables; Campaign holds optional brandId/businessId strings.
   // We'll use stable UUID-like strings for easy reference in tests.
-  const brandId = 'brand_seed_1';
-  const businessId = 'biz_seed_1';
+  const brandId = '385d4ebb-4c4b-46e9-8701-0d71bfd7ce47';
+  const businessId = 'af941888-ec4c-458e-b905-21673241af3e';
 
   // Idempotent seed: reuse existing campaign if present
   const existing = await prisma.campaign.findFirst({

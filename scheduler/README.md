@@ -23,7 +23,7 @@ Optional URL mapping (multi-tenant discovery):
 	Example:
 
 	{
-		"localhost": { "brandId": "brand_seed_1", "businessId": "biz_seed_1" },
+		"localhost": { "brandId": "385d4ebb-4c4b-46e9-8701-0d71bfd7ce47", "businessId": "af941888-ec4c-458e-b905-21673241af3e" },
 		"business.example.com": { "brandId": null, "businessId": "<uuid>" }
 	}
 
