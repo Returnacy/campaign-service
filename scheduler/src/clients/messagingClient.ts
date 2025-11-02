@@ -72,7 +72,8 @@ export class MessagingClient {
         const err = e as AxiosError;
         const status = err.response?.status ?? 0;
         const retriable = status >= 500 || status === 429 || !status;
-        console.error('[messagingClient] request failed', { attempt, status, retriable, message: err.message });
+        const details = (err.response?.data ?? undefined);
+        console.error('[messagingClient] request failed', { attempt, status, retriable, message: err.message, details });
         if (!retriable || attempt > this.maxRetries) throw e;
         await new Promise(r => setTimeout(r, delay));
         delay = Math.min(delay * 2, 5000);
