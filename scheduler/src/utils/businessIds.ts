@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import axios from 'axios';
 import { fileURLToPath } from 'url';
+import { TokenService } from './tokenService.js';
 
 export type DomainMapping = Record<string, { brandId: string | null; businessId: string }>;
 
@@ -39,4 +41,28 @@ export function parseBusinessIds(): string[] {
     return Array.from(ids);
   }
   return [];
+}
+
+export async function fetchBusinessIds(): Promise<string[]> {
+  const mapper = process.env.DOMAIN_MAPPER_URL;
+  if (!mapper) return parseBusinessIds();
+  try {
+    const tokenService = new TokenService({
+      clientId: process.env.KEYCLOAK_CLIENT_ID ?? '',
+      clientSecret: process.env.KEYCLOAK_CLIENT_SECRET ?? '',
+      tokenUrl: process.env.KEYCLOAK_TOKEN_URL ?? '',
+    });
+    const token = await tokenService.getAccessToken();
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await axios.get(`${mapper.replace(/\/$/, '')}/api/v1/businesses`, { headers });
+    const list: Array<{ businessId?: string }> = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+    const ids = new Set<string>();
+    for (const item of list) {
+      const id = item?.businessId;
+      if (typeof id === 'string' && id) ids.add(id);
+    }
+    return Array.from(ids);
+  } catch {
+    return parseBusinessIds();
+  }
 }

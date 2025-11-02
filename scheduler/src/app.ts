@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis';
 import pino from 'pino';
-import { parseBusinessIds } from './utils/businessIds.js';
+import { parseBusinessIds, fetchBusinessIds } from './utils/businessIds.js';
 import { scheduler as runScheduler } from './scheduler.js';
 import { createWorker } from './worker.js';
 import { Processor } from './processor.js';
@@ -17,7 +17,7 @@ async function main() {
   const intervalMs = Number(process.env.SCHEDULE_INTERVAL_MS || 30000);
   const dailyAt = process.env.SCHEDULER_DAILY_AT; // optional 'HH:MM' 24h format
   const oneShot = process.env.SCHEDULER_ONE_SHOT === 'true';
-  const businessIds = parseBusinessIds();
+  const businessIds = (await fetchBusinessIds()) || parseBusinessIds();
 
   logger.info({ redisUrl, intervalMs, dailyAt, oneShot, businessIdsCount: businessIds.length }, 'Scheduler service starting');
 

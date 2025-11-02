@@ -10,7 +10,9 @@
 
 import fs from 'fs';
 import path from 'path';
+import axios from 'axios';
 import { fileURLToPath } from 'url';
+import { TokenService } from './tokenService.js';
 
 let cachedMap: any | null = null;
 
@@ -97,4 +99,25 @@ export function resolveBusinessBaseUrl(businessId: string): string | null {
     }
   }
   return null;
+}
+
+// Async preferred: use domain-mapper-service if available
+export async function fetchBusinessBaseUrl(businessId: string): Promise<string | null> {
+  const mapper = process.env.DOMAIN_MAPPER_URL;
+  if (!mapper) return resolveBusinessBaseUrl(businessId);
+  try {
+    const tokenService = new TokenService({
+      clientId: process.env.KEYCLOAK_CLIENT_ID ?? '',
+      clientSecret: process.env.KEYCLOAK_CLIENT_SECRET ?? '',
+      tokenUrl: process.env.KEYCLOAK_TOKEN_URL ?? '',
+    });
+    const token = await tokenService.getAccessToken();
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await axios.get(`${mapper.replace(/\/$/, '')}/api/v1/business/${encodeURIComponent(businessId)}`, { headers });
+    const url = res.data?.url || res.data?.host;
+    if (typeof url === 'string' && url) return url;
+  } catch {
+    // ignore and fallback
+  }
+  return resolveBusinessBaseUrl(businessId);
 }
