@@ -13,32 +13,15 @@ import { campaignsRoutes } from './modules/api/v1/campaigns/campaigns.route.js';
 import { healthRoute } from './modules/health/health.route.js';
 import { authDebugRoute } from './modules/auth/debug.route.js';
 
-import { CorsError } from './errors/index.error.js';
 import legacyAuthPlugin from './plugins/legacyAuthPlugin.js';
 
 // Enable logger to surface internal errors in production (Railway logs HTTP but not internal stack traces unless logger enabled)
 const server = Fastify({ logger: true });
 
 async function main() {
-  server.register(fastifyCors, {
-    origin: (origin, cb) => {
-      const allowed = new Set<string>();
-      const add = (s?: string | null) => { if (s && typeof s === 'string') allowed.add(s); };
-      add(process.env.USER_SERVICE_URL);
-      add(process.env.CAMPAIGN_SERVICE_URL);
-      // BUSINESS_SERVICE_URL can contain multiple comma-separated URLs; include all for CORS
-      const bizUrls = process.env.BUSINESS_SERVICE_URL;
-      if (bizUrls) {
-        for (const u of bizUrls.split(',')) add(u.trim());
-      }
-      add(process.env.FRONTEND_ORIGIN || 'http://localhost:5173');
-      if (process.env.WEBHOOK_URLS) for (const o of process.env.WEBHOOK_URLS.split(',')) add(o.trim());
-
-      if (!origin || allowed.has(origin)) return cb(null, true);
-      return cb(new CorsError(`Not allowed by CORS: ${origin}`), false);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'OPTIONS', 'DELETE'],
+  const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+  await server.register(fastifyCors, {
+    origin: CORS_ORIGIN.split(',').map((s: string) => s.trim())
   });
 
   if (process.env.USE_LEGACY_AUTH === 'true') {
