@@ -10,7 +10,8 @@ export async function postCampaignHandler(request: FastifyRequest<{ Params: { ca
     if (!auth)
       throw new Error('No auth information found in request');
 
-    const scopes = listScopesByRoles(request, ['admin']);
+  // Allow admins, brand managers, and managers to manage campaign lifecycle
+  const scopes = listScopesByRoles(request, ['admin', 'brand_manager', 'manager']);
     if (!scopes || scopes.length === 0)
       throw new Error('No membership scopes found in auth information');
 

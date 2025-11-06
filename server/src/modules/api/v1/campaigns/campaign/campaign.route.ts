@@ -17,7 +17,7 @@ export async function campaignRoutes(server: FastifyInstance) {
     handler: patchCampaignHandler
   });
   server.post('/:campaignId', {
-    preHandler: requireMembershipRole(['admin']),
+    preHandler: requireMembershipRole(['admin', 'brand_manager', 'manager']),
     handler: postCampaignHandler
   })
   server.delete('/:campaignId', {
