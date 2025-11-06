@@ -1,7 +1,7 @@
 // src/utils/businessServiceUrlResolver.ts
 // Resolve the Business Service base URL for a given businessId by reading a JSON mapping.
 // Supports two families of inputs:
-// A) user-service style domain mapping (Record<hostname, { brandId: string|null, businessId: string }>)
+// A) user-service style domain mapping (Record<hostname, { brandId: string|null, businessId: string | null }>)
 // B) Direct mappings where the key is the URL and value is the businessId:
 //    - Record<string, string> where key = url, value = businessId
 //    - Array<[string, string]> as [url, businessId]

@@ -18,7 +18,7 @@ Env vars required:
 Optional URL mapping (multi-tenant discovery):
 - DOMAIN_MAPPING_FILE: absolute path to a JSON file using the same format as user-service `domain-mapping.json`:
 
-	Record<hostname, { brandId: string|null, businessId: string }>
+	Record<hostname, { brandId: string|null, businessId: string | null }>
 
 	Example:
 

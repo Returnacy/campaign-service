@@ -9,7 +9,7 @@ import { RepositoryPrisma } from '@campaign-service/db';
 const logger = pino({ level: process.env.LOG_LEVEL || 'info', name: 'campaign-service.scheduler' });
 
 // Load domain-mapping.json using the same structure used by user-service/server
-// Structure: Record<hostname, { brandId: string | null; businessId: string }>
+// Structure: Record<hostname, { brandId: string | null; businessId: string | null }>
 // parseBusinessIds is imported from utils/businessIds
 
 async function main() {

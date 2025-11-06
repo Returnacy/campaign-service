@@ -4,7 +4,7 @@ import axios from 'axios';
 import { fileURLToPath } from 'url';
 import { TokenService } from './tokenService.js';
 
-export type DomainMapping = Record<string, { brandId: string | null; businessId: string }>;
+export type DomainMapping = Record<string, { brandId: string | null; businessId: string | null }>;
 
 function loadDomainMapping(): DomainMapping | null {
   try {
