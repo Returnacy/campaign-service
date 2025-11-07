@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis';
 import pino from 'pino';
-import { parseBusinessIds, fetchBusinessIds } from './utils/businessIds.js';
+import { fetchBusinessIds } from './utils/businessIds.js';
 import { scheduler as runScheduler } from './scheduler.js';
 import { createWorker } from './worker.js';
 import { Processor } from './processor.js';
@@ -8,16 +8,17 @@ import { RepositoryPrisma } from '@campaign-service/db';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info', name: 'campaign-service.scheduler' });
 
-// Load domain-mapping.json using the same structure used by user-service/server
-// Structure: Record<hostname, { brandId: string | null; businessId: string | null }>
-// parseBusinessIds is imported from utils/businessIds
+// Business IDs are resolved from domain-mapper-service at startup
 
 async function main() {
   const redisUrl = process.env.REDIS_URL || 'redis://redis:6379';
   const intervalMs = Number(process.env.SCHEDULE_INTERVAL_MS || 30000);
   const dailyAt = process.env.SCHEDULER_DAILY_AT; // optional 'HH:MM' 24h format
   const oneShot = process.env.SCHEDULER_ONE_SHOT === 'true';
-  const businessIds = (await fetchBusinessIds()) || parseBusinessIds();
+  const businessIds = await fetchBusinessIds();
+  if (!businessIds.length) {
+    throw new Error('No business ids available from domain-mapper-service');
+  }
 
   logger.info({ redisUrl, intervalMs, dailyAt, oneShot, businessIdsCount: businessIds.length }, 'Scheduler service starting');
 

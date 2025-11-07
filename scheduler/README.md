@@ -8,34 +8,17 @@ Runs periodically (cron/CI) to:
 
 Env vars required:
 - USER_SERVICE_URL
-- BUSINESS_SERVICE_URL (fallback if no mapping)
 - MESSAGING_SERVICE_URL
 - KEYCLOAK_TOKEN_URL
 - KEYCLOAK_CLIENT_ID
 - KEYCLOAK_CLIENT_SECRET
+- DOMAIN_MAPPER_URL
 - DEFAULT_FROM (optional)
 
-Optional URL mapping (multi-tenant discovery):
-- DOMAIN_MAPPING_FILE: absolute path to a JSON file using the same format as user-service `domain-mapping.json`:
+Optional:
+- BUSINESS_SERVICE_URL (used only if domain-mapper resolution fails)
 
-	Record<hostname, { brandId: string|null, businessId: string | null }>
-
-	Example:
-
-	{
-		"localhost": { "brandId": "385d4ebb-4c4b-46e9-8701-0d71bfd7ce47", "businessId": "af941888-ec4c-458e-b905-21673241af3e" },
-		"business.example.com": { "brandId": null, "businessId": "<uuid>" }
-	}
-
-	The scheduler will resolve the business base URL as:
-	- `${BUSINESS_SERVICE_URL_SCHEME||https}://<hostname>` for the matching hostname.
-
-- Legacy fallback (still supported):
-	- BUSINESS_SERVICE_MAP_FILE pointing to a mapping of URL -> businessId, e.g. `{ "https://biz-a.example.com": "<uuid>" }`.
-
-If no match is found for a given businessId the client falls back to BUSINESS_SERVICE_URL.
-
-Note: default scheme for derived URLs is `https`. Override with `BUSINESS_SERVICE_URL_SCHEME=http` if needed for local/dev.
+Business URLs and ids are resolved at runtime from `domain-mapper-service`. Configure the mapper URL and ensure the service is reachable before starting the scheduler. The optional `BUSINESS_SERVICE_URL` acts only as a final fallback when the mapper cannot resolve a value.
 
 Build and run (workspace):
 - pnpm -r build

@@ -19,7 +19,7 @@ export class BusinessClient {
 
   async getAvailableMessages(businessId: string): Promise<AvailableMessagesResponse> {
     const token = await this.tokenService.getAccessToken();
-    const resolvedBase = resolveBusinessBaseUrl(businessId) || this.baseUrl;
+  const resolvedBase = (await resolveBusinessBaseUrl(businessId)) || this.baseUrl;
     return this.requestWithRetry<AvailableMessagesResponse>(() =>
       axios.post(
         `${resolvedBase}/internal/v1/business/${businessId}/available-messages`,
@@ -35,7 +35,7 @@ export class BusinessClient {
   // Idempotent coupon creation using a deterministic code derived from (userId, prizeId)
   async ensureCoupon(userId: string, businessId: string, prizeId: string): Promise<{ created: boolean }>{
     const token = await this.tokenService.getAccessToken();
-    const resolvedBase = resolveBusinessBaseUrl(businessId) || this.baseUrl;
+  const resolvedBase = (await resolveBusinessBaseUrl(businessId)) || this.baseUrl;
     const short = (s: string) => String(s || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
     const code = `CP-${short(prizeId)}-${short(userId)}-${short(Date.now().toString())}`;
     try {
