@@ -13,8 +13,10 @@ export async function getCampaignsService(request: FastifyRequest, scopes: Membe
     }
     // Otherwise, if it has only brandId, use brand lookup.
     else if (scope.brandId) {
+      // Only include brand-level campaigns (those without a businessId) when resolving by brand
       const byBrand = await repository.findCampaignsByBrandId(scope.brandId);
-      campaigns.push(...byBrand);
+      const brandOnly = byBrand.filter((c: any) => !c.businessId);
+      campaigns.push(...brandOnly);
     }
   }
 
