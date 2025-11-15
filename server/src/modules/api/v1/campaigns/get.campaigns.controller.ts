@@ -20,17 +20,35 @@ export async function getCampaignsHandler(request: FastifyRequest, reply: Fastif
 
     // Filter scopes based on requested tenant context
     let filteredScopes = scopes;
+  const { debugMemberships } = await import('../../../../utils/userAuthGuard.js');
     if (requestedBusinessId) {
-      // Filter to only the requested business (if user has access)
+      // Filter to only the requested business (if user has access via roles)
       filteredScopes = scopes.filter(s => s.businessId === requestedBusinessId);
       if (filteredScopes.length === 0) {
-        return reply.status(403).send({ error: 'Access denied to the requested business' });
+        // Fallback: allow if user has any membership for that business (even without elevated roles)
+        const memberships = (request as any).userMemberships ?? [];
+        const hasMembership = memberships.some((m: any) => m.businessId === requestedBusinessId);
+        if (hasMembership) {
+          // Create a single scope representing the business membership so service can resolve campaigns
+          filteredScopes = [{ brandId: memberships.find((m: any) => m.businessId === requestedBusinessId)?.brandId ?? null, businessId: requestedBusinessId }];
+        } else {
+          request.server.log.info({ path: request.url, memberships: debugMemberships(request).memberships }, 'Access denied to requested business - no matching scopes or membership');
+          return reply.status(403).send({ error: 'Access denied to the requested business' });
+        }
       }
     } else if (requestedBrandId) {
-      // Filter to only the requested brand (if user has access)
+      // Filter to only the requested brand (if user has access via roles)
       filteredScopes = scopes.filter(s => s.brandId === requestedBrandId);
       if (filteredScopes.length === 0) {
-        return reply.status(403).send({ error: 'Access denied to the requested brand' });
+        // Fallback: allow if user has any membership for that brand (brand-level or business-level membership)
+        const memberships = (request as any).userMemberships ?? [];
+        const match = memberships.find((m: any) => m.brandId === requestedBrandId);
+        if (match) {
+          filteredScopes = [{ brandId: requestedBrandId, businessId: match.businessId ?? null }];
+        } else {
+          request.server.log.info({ path: request.url, memberships: debugMemberships(request).memberships }, 'Access denied to requested brand - no matching scopes or membership');
+          return reply.status(403).send({ error: 'Access denied to the requested brand' });
+        }
       }
     }
 
