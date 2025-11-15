@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 
-import fastifyCors from '@fastify/cors';
+import cors from '@fastify/cors';
 
 import keycloakAuthPlugin from './plugins/keycloakAuthPlugin.js';
 import keycloakTokenPlugin from './plugins/keycloakTokenPlugin.js';
@@ -18,11 +18,31 @@ import legacyAuthPlugin from './plugins/legacyAuthPlugin.js';
 // Enable logger to surface internal errors in production (Railway logs HTTP but not internal stack traces unless logger enabled)
 const server = Fastify({ logger: true });
 
+function resolveCorsOrigin(rawValue?: string | null) {
+  if (!rawValue) return true;
+  const trimmedValue = rawValue.trim();
+  if (!trimmedValue) return true;
+
+  const lowerValue = trimmedValue.toLowerCase();
+  if (['true', '1', '*'].includes(lowerValue)) return true;
+  if (['false', '0', 'no'].includes(lowerValue)) return false;
+
+  const origins = trimmedValue
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+
+  return origins.length > 0 ? origins : true;
+}
+
 async function main() {
-  const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
-  await server.register(fastifyCors, {
-    origin: CORS_ORIGIN.split(',').map((s: string) => s.trim())
-  });
+  const corsOrigin = resolveCorsOrigin(process.env.CORS_ORIGIN ?? null);
+  await server.register(cors, {
+      origin: corsOrigin,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    });
 
   if (process.env.USE_LEGACY_AUTH === 'true') {
     server.register(legacyAuthPlugin);
