@@ -9,12 +9,33 @@ export async function getCampaignsHandler(request: FastifyRequest, reply: Fastif
     if (!auth)
       throw new Error('No auth information found in request');
 
-    const businessIds = listScopesByRoles(request, ['admin', 'brand_manager', 'manager']);
-    if (!businessIds)
-      throw new Error('No businessIds found in auth information');
+    const scopes = listScopesByRoles(request, ['admin', 'brand_manager', 'manager']);
+    if (!scopes)
+      throw new Error('No scopes found in auth information');
 
-    const campaigns = await getCampaignsService(request, businessIds);
-    
+    // Extract optional tenant context from query parameters
+    const query = request.query as any;
+    const requestedBrandId = query?.brandId;
+    const requestedBusinessId = query?.businessId;
+
+    // Filter scopes based on requested tenant context
+    let filteredScopes = scopes;
+    if (requestedBusinessId) {
+      // Filter to only the requested business (if user has access)
+      filteredScopes = scopes.filter(s => s.businessId === requestedBusinessId);
+      if (filteredScopes.length === 0) {
+        return reply.status(403).send({ error: 'Access denied to the requested business' });
+      }
+    } else if (requestedBrandId) {
+      // Filter to only the requested brand (if user has access)
+      filteredScopes = scopes.filter(s => s.brandId === requestedBrandId);
+      if (filteredScopes.length === 0) {
+        return reply.status(403).send({ error: 'Access denied to the requested brand' });
+      }
+    }
+
+    const campaigns = await getCampaignsService(request, filteredScopes);
+
     return reply.send(campaigns);
   } catch (error) {
     return reply.status(400).send(error);
