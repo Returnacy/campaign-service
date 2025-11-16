@@ -2,6 +2,7 @@ import type { FastifyRequest } from "fastify";
 import type { MembershipScope } from '../../../../types/membershipScope.js';
 
 type QuickCreateBody = {
+  name: string;
   type: "campaign" | "broadcast";
   channel: "email" | "sms" | "both";
   prize: "sconto_15" | "pizza_gratis" | "bevanda_gratis" | "nessuno";
@@ -17,6 +18,10 @@ type QuickCreateBody = {
 export async function postQuickCreateService(request: FastifyRequest, scopes: MembershipScope[]) {
   const { repository } = request.server;
   const body = request.body as QuickCreateBody;
+
+  if (!body.name || !body.name.trim()) {
+    return { statusCode: 400, body: { error: "Campaign name is required" } };
+  }
 
   if (!body.messageText || !body.messageText.trim()) {
     return { statusCode: 400, body: { error: "Message text is required" } };
@@ -34,18 +39,8 @@ export async function postQuickCreateService(request: FastifyRequest, scopes: Me
     }
   }
 
-  // Build campaign name
-  let campaignName = body.type === "campaign" ? "Campagna " : "Broadcast ";
-  if (body.type === "campaign" && body.targetingType) {
-    const targetLabels = {
-      birthday: "Compleanno",
-      lastVisit: "Ultima Visita",
-      stamps: "Timbri"
-    };
-    campaignName += targetLabels[body.targetingType];
-  } else {
-    campaignName += new Date().toLocaleDateString("it-IT");
-  }
+  // Use the provided campaign name
+  const campaignName = body.name.trim();
 
   // Build targeting rules if campaign
   const targetingRules: any[] = [];
