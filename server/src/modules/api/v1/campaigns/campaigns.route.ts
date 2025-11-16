@@ -20,7 +20,7 @@ export async function campaignsRoutes(server: FastifyInstance) {
     handler: postCampaignsHandler
   });
   server.post('/campaigns/quick-create', {
-    preHandler: requireMembershipRole(['admin', 'brand_manager', 'manager']),
+    preHandler: requireMembershipRole(['admin', 'brand_manager', 'manager', 'staff'], { allowAnyMembership: true }),
     handler: postQuickCreateHandler
   });
 

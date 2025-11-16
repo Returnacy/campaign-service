@@ -6,6 +6,8 @@ type QuickCreateBody = {
   channel: "email" | "sms" | "both";
   prize: "sconto_15" | "pizza_gratis" | "bevanda_gratis" | "nessuno";
   messageText: string;
+  businessId?: string | null;
+  brandId?: string | null;
   targetingType?: "birthday" | "lastVisit" | "stamps";
   birthdayOption?: "7_days_before" | "today";
   lastVisitOption?: "30_days" | "40_days";
@@ -20,10 +22,14 @@ export async function postQuickCreateService(request: FastifyRequest, scopes: Me
     return { statusCode: 400, body: { error: "Message text is required" } };
   }
 
-  // Use the first scope to determine business/brand context
-  const scope = scopes[0];
-  if (!scope) {
-    return { statusCode: 403, body: { error: "No valid scope found" } };
+  // Use businessId/brandId from body if provided, otherwise use scopes
+  let businessId = body.businessId || null;
+  let brandId = body.brandId || null;
+
+  if (!businessId && !brandId && scopes.length > 0) {
+    const scope = scopes[0];
+    businessId = scope.businessId || null;
+    brandId = scope.brandId || null;
   }
 
   // Build campaign name
@@ -117,8 +123,8 @@ export async function postQuickCreateService(request: FastifyRequest, scopes: Me
 
   // Create campaign
   const campaignData: any = {
-    businessId: scope.businessId || null,
-    brandId: scope.brandId || null,
+    businessId: businessId,
+    brandId: brandId,
     name: campaignName,
     description: `Auto-generated ${body.type}`,
     scheduleType: body.type === "campaign" ? "EVENT_TRIGGERED" : "ONE_TIME",
