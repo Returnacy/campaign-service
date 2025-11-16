@@ -68,6 +68,30 @@ export class RepositoryPrisma {
 		});
 	}
 
+	async countActiveCampaignsByBusinessIds(businessIds: string[]): Promise<Record<string, number>> {
+		const results = await prisma.campaign.groupBy({
+			by: ['businessId'],
+			where: {
+				businessId: { in: businessIds },
+				status: 'ACTIVE'
+			},
+			_count: {
+				id: true
+			}
+		});
+
+		const counts: Record<string, number> = {};
+		for (const businessId of businessIds) {
+			counts[businessId] = 0;
+		}
+		for (const result of results) {
+			if (result.businessId) {
+				counts[result.businessId] = result._count.id;
+			}
+		}
+		return counts;
+	}
+
 	async createCampaign(data: CreateCampaign) {
 		return prisma.campaign.create({
 			data: {
