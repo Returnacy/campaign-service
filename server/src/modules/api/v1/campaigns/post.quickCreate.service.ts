@@ -28,8 +28,10 @@ export async function postQuickCreateService(request: FastifyRequest, scopes: Me
 
   if (!businessId && !brandId && scopes.length > 0) {
     const scope = scopes[0];
-    businessId = scope.businessId || null;
-    brandId = scope.brandId || null;
+    if (scope) {
+      businessId = scope.businessId || null;
+      brandId = scope.brandId || null;
+    }
   }
 
   // Build campaign name
