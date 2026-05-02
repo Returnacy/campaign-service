@@ -17,7 +17,7 @@ export class MessagingClient {
   }
 
   async schedule(input: ScheduleInput) {
-    const token = await this.tokenService.getAccessToken();
+    const token = await this.tokenService.getAccessToken({ scope: 'send' });
     // Idempotency per-minute: dedupe within the same minute; allow a new send each new minute.
     // Use UTC minute bucket to avoid timezone surprises (e.g., 2025-10-08T15:22)
     const minuteBucket = new Date().toISOString().slice(0, 16);
